@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Github, Sun, Moon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Landing(): JSX.Element {
   const [dark, setDark] = useState<boolean>(false);
@@ -13,6 +14,15 @@ export default function Landing(): JSX.Element {
           <h1 className="text-xl font-semibold tracking-tight">AttendEasy</h1>
 
           <div className="flex items-center gap-4">
+            {/* Login */}
+            <Link
+              to="/login"
+              className="hidden sm:inline-block text-sm font-medium px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition"
+            >
+              Login
+            </Link>
+
+            {/* Theme Toggle */}
             <button
               onClick={() => setDark(!dark)}
               aria-label="Toggle theme"
@@ -21,6 +31,7 @@ export default function Landing(): JSX.Element {
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
+            {/* GitHub */}
             <a
               href="https://github.com/Therajat14/attendeasy"
               target="_blank"
@@ -56,11 +67,26 @@ export default function Landing(): JSX.Element {
             real-time validation.
           </motion.p>
 
-          {/* Status Pill */}
+          {/* Signup CTA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
+            className="mt-10"
+          >
+            <Link
+              to="/signup"
+              className="inline-block px-8 py-4 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-black font-medium hover:opacity-90 transition"
+            >
+              Get Started
+            </Link>
+          </motion.div>
+
+          {/* Status Pill */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
             className="mt-10 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900"
           >
             <span className="h-2 w-2 rounded-full bg-indigo-500" />
