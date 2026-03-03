@@ -1,11 +1,11 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 interface CardProps {
   title: string;
   children: ReactNode;
 }
 
-export default function Card({ title, children }: CardProps): JSX.Element {
+export default function Card({ title, children }: CardProps) {
   return (
     <div className="p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
       <h3 className="font-semibold text-lg">{title}</h3>

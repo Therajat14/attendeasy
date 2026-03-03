@@ -1,24 +1,44 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "../context/AuthContext";
 import Landing from "../pages/Landing";
 import Dashboard from "../pages/Dashboard";
 import NotFound from "../pages/NotFound";
 import Signup from "../pages/Signup";
-import { AuthProvider } from "../context/AuthContext";
 import Login from "../pages/Login";
+import ProtectedRoute from "../components/ProtectedRoute";
+import PublicOnlyRoute from "../components/PublicOnlyRoute";
 
-export default function AppRoutes(): JSX.Element {
+export default function AppRoutes() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicOnlyRoute>
+                <Signup />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
-          {/* Auth */}
-          {/* <Route path="/login" element={<Login />} /> */}
-
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

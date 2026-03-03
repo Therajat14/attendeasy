@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import ThemeToggle from "../components/ThemeToggle";
 
-export default function NotFound(): JSX.Element {
+export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black text-neutral-900 dark:text-white transition-colors duration-500">
+    <div className="relative min-h-screen bg-white text-neutral-900 transition-colors duration-500 dark:bg-black dark:text-white">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="flex min-h-screen items-center justify-center">
       <div className="text-center max-w-md px-6">
         <h1 className="text-7xl font-bold tracking-tight">404</h1>
 
@@ -24,6 +30,7 @@ export default function NotFound(): JSX.Element {
         <p className="mt-10 text-xs text-neutral-500">
           AttendEasy — Smart Attendance Platform
         </p>
+      </div>
       </div>
     </div>
   );
