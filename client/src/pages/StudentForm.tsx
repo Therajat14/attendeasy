@@ -7,22 +7,18 @@ import { api } from "../services/api";
 
 interface StudentFormState {
   name: string;
-  class: string;
-  section: string;
   rollNo: string;
 }
 
 function extractApiError(error: unknown): string {
   const axiosError = error as AxiosError<{ message?: string }>;
-  return axiosError.response?.data?.message || "Unable to submit student details";
+  return axiosError.response?.data?.message || "Unable to submit attendance";
 }
 
 export default function StudentForm() {
   const { token } = useParams();
   const [form, setForm] = useState<StudentFormState>({
     name: "",
-    class: "",
-    section: "",
     rollNo: "",
   });
   const [error, setError] = useState("");
@@ -36,12 +32,12 @@ export default function StudentForm() {
     setSubmitting(true);
 
     try {
-      await api.post(`/submit-form/${token}`, {
-        ...form,
+      await api.post(`/attendance/submit/${token}`, {
+        name: form.name,
         rollNo: Number(form.rollNo),
       });
-      setSuccess("Your details were submitted successfully.");
-      setForm({ name: "", class: "", section: "", rollNo: "" });
+      setSuccess("Your attendance was submitted successfully.");
+      setForm({ name: "", rollNo: "" });
     } catch (err) {
       setError(extractApiError(err));
     } finally {
@@ -63,12 +59,11 @@ export default function StudentForm() {
       <main className="mx-auto flex min-h-[calc(100vh-73px)] w-full max-w-4xl items-center px-4 py-8 sm:px-8">
         <section className="w-full rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
           <p className="inline-block rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium dark:border-neutral-700">
-            Student details
+            Live attendance
           </p>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight">Submit your attendance profile</h1>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight">Mark your attendance</h1>
           <p className="mt-3 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
-            Fill this once using the link shared by your teacher. Your details will be attached to
-            that teacher&apos;s account.
+            Enter your name and roll number. This link is valid only while the teacher&apos;s session is active.
           </p>
 
           {error && (
@@ -83,8 +78,8 @@ export default function StudentForm() {
             </p>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
+          <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-[1fr_220px]">
+            <div>
               <label htmlFor="name" className="mb-1 block text-sm font-medium">
                 Full name
               </label>
@@ -95,33 +90,6 @@ export default function StudentForm() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
                 placeholder="Your full name"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="class" className="mb-1 block text-sm font-medium">
-                Class
-              </label>
-              <input
-                id="class"
-                required
-                value={form.class}
-                onChange={(e) => setForm({ ...form, class: e.target.value })}
-                className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                placeholder="BCA 2nd Year"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="section" className="mb-1 block text-sm font-medium">
-                Section
-              </label>
-              <input
-                id="section"
-                value={form.section}
-                onChange={(e) => setForm({ ...form, section: e.target.value })}
-                className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                placeholder="A"
               />
             </div>
 
@@ -141,13 +109,13 @@ export default function StudentForm() {
               />
             </div>
 
-            <div className="flex items-end">
+            <div className="sm:col-span-2">
               <button
                 type="submit"
                 disabled={submitting}
                 className="w-full rounded-xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
               >
-                {submitting ? "Submitting..." : "Submit details"}
+                {submitting ? "Submitting..." : "Submit attendance"}
               </button>
             </div>
           </form>

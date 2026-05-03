@@ -1,12 +1,17 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
-import formRoutes from "./routes/form.routes.js";
+import attendanceRoutes from "./routes/attendance.routes.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import morgan from "morgan";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
 
@@ -17,7 +22,7 @@ app.use(morgan("dev"));
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api", formRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 // Health check
 app.get("/", (req, res) => {
