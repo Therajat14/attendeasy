@@ -2,8 +2,11 @@ import mongoose from "mongoose";
 
 const attendanceStudentSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    rollNo: { type: Number, required: true },
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     submittedAt: { type: Date, default: Date.now },
   },
   { _id: false },

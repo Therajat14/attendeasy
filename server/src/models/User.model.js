@@ -11,6 +11,13 @@ const userSchema = new mongoose.Schema(
       enum: ["student", "teacher", "cr", "admin"],
       default: "student",
     },
+    rollNo: {
+      type: Number,
+      min: 1,
+      required: function () {
+        return this.role === "student";
+      },
+    },
   },
   { timestamps: true },
 );

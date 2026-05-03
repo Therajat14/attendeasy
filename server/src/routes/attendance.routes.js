@@ -4,8 +4,8 @@ import {
   getAttendanceSessionById,
   getAttendanceSessions,
   getAttendanceSessionsByDate,
+  markAttendance,
   startAttendanceSession,
-  submitAttendance,
 } from "../controllers/attendance.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { formSubmissionRateLimiter } from "../middlewares/rateLimit.middleware.js";
@@ -13,7 +13,7 @@ import { formSubmissionRateLimiter } from "../middlewares/rateLimit.middleware.j
 const router = express.Router();
 
 router.post("/start", protect, startAttendanceSession);
-router.post("/submit/:token", formSubmissionRateLimiter, submitAttendance);
+router.post("/mark/:token", protect, formSubmissionRateLimiter, markAttendance);
 router.get("/", protect, getAttendanceSessions);
 router.get("/date/:date", protect, getAttendanceSessionsByDate);
 router.get("/:id", protect, getAttendanceSessionById);

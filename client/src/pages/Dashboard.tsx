@@ -7,8 +7,10 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
 interface AttendanceStudent {
+  studentId: string;
   name: string;
-  rollNo: number;
+  email: string;
+  rollNo: number | null;
   submittedAt: string;
 }
 
@@ -354,14 +356,16 @@ export default function Dashboard() {
                             <tr>
                               <th className="px-4 py-3 font-medium">Roll No</th>
                               <th className="px-4 py-3 font-medium">Name</th>
+                              <th className="px-4 py-3 font-medium">Email</th>
                               <th className="px-4 py-3 font-medium">Submitted</th>
                             </tr>
                           </thead>
                           <tbody>
                             {selectedSession.students.map((student) => (
-                              <tr key={`${selectedSession.id}-${student.rollNo}`} className="border-t border-neutral-200 dark:border-neutral-800">
-                                <td className="px-4 py-3">{student.rollNo}</td>
+                              <tr key={`${selectedSession.id}-${student.studentId}`} className="border-t border-neutral-200 dark:border-neutral-800">
+                                <td className="px-4 py-3">{student.rollNo ?? "N/A"}</td>
                                 <td className="px-4 py-3">{student.name}</td>
+                                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{student.email || "Not available"}</td>
                                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
                                   {new Date(student.submittedAt).toLocaleTimeString()}
                                 </td>

@@ -13,6 +13,7 @@ export default function Signup() {
     name: "",
     email: "",
     password: "",
+    rollNo: "",
     role: "student" as "student" | "teacher" | "cr",
   });
   const [error, setError] = useState("");
@@ -24,7 +25,13 @@ export default function Signup() {
     setSubmitting(true);
 
     try {
-      await register(form);
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        ...(form.role === "student" ? { rollNo: Number(form.rollNo) } : {}),
+      });
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -134,6 +141,24 @@ export default function Signup() {
                 <option value="cr">CR</option>
               </select>
             </div>
+
+            {form.role === "student" && (
+              <div>
+                <label htmlFor="rollNo" className="mb-1 block text-sm font-medium">
+                  Roll number
+                </label>
+                <input
+                  id="rollNo"
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="Enter your roll number"
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                  value={form.rollNo}
+                  onChange={(e) => setForm({ ...form, rollNo: e.target.value })}
+                />
+              </div>
+            )}
 
             <button
               type="submit"

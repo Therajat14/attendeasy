@@ -20,13 +20,6 @@ function normalizeSessionPayload(body) {
   };
 }
 
-function normalizeStudentPayload(body) {
-  return {
-    name: typeof body.name === "string" ? body.name.trim() : "",
-    rollNo: Number(body.rollNo),
-  };
-}
-
 function serializeAttendance(attendance) {
   return {
     id: attendance._id,
@@ -38,7 +31,13 @@ function serializeAttendance(attendance) {
     formUrl: buildFormUrl(attendance.formToken),
     expiresAt: attendance.expiresAt,
     isActive: attendance.isActive,
-    students: attendance.students,
+    students: attendance.students.map((student) => ({
+      studentId: student.studentId?._id || student.studentId,
+      name: student.studentId?.name || "Unknown student",
+      email: student.studentId?.email || "",
+      rollNo: student.studentId?.rollNo || null,
+      submittedAt: student.submittedAt,
+    })).sort((a, b) => (a.rollNo ?? Number.MAX_SAFE_INTEGER) - (b.rollNo ?? Number.MAX_SAFE_INTEGER)),
     studentCount: attendance.students.length,
   };
 }
@@ -73,6 +72,8 @@ export const startAttendanceSession = async (req, res) => {
   });
 
   if (existingActiveSession) {
+    await existingActiveSession.populate("students.studentId", "name email rollNo role");
+
     return res.status(409).json({
       message: "You already have an active attendance session",
       session: serializeAttendance(existingActiveSession),
@@ -98,13 +99,12 @@ export const startAttendanceSession = async (req, res) => {
   });
 };
 
-export const submitAttendance = async (req, res) => {
-  const { token } = req.params;
-  const student = normalizeStudentPayload(req.body);
-
-  if (!student.name || !Number.isInteger(student.rollNo)) {
-    return res.status(400).json({ message: "name and rollNo are required" });
+export const markAttendance = async (req, res) => {
+  if (req.user.role !== "student") {
+    return res.status(403).json({ message: "Only students can mark attendance" });
   }
+
+  const { token } = req.params;
 
   const attendance = await Attendance.findOne({ formToken: token });
   if (!attendance) {
@@ -129,7 +129,7 @@ export const submitAttendance = async (req, res) => {
       students: {
         $not: {
           $elemMatch: {
-            rollNo: student.rollNo,
+            studentId: req.user._id,
           },
         },
       },
@@ -137,7 +137,7 @@ export const submitAttendance = async (req, res) => {
     {
       $push: {
         students: {
-          ...student,
+          studentId: req.user._id,
           submittedAt: new Date(),
         },
       },
@@ -146,19 +146,20 @@ export const submitAttendance = async (req, res) => {
   );
 
   if (!updatedAttendance) {
-    return res.status(409).json({ message: "Attendance already submitted for this roll number" });
+    return res.status(409).json({ message: "Already marked" });
   }
 
   return res.status(201).json({
-    message: "Attendance submitted successfully",
-    student,
+    message: "Attendance marked successfully",
   });
 };
 
 export const getAttendanceSessions = async (req, res) => {
   await expireOldSessions({ teacherId: req.user._id });
 
-  const sessions = await Attendance.find({ teacherId: req.user._id }).sort({ date: -1 });
+  const sessions = await Attendance.find({ teacherId: req.user._id })
+    .populate("students.studentId", "name email rollNo role")
+    .sort({ date: -1 });
 
   return res.json(sessions.map(serializeAttendance));
 };
@@ -171,7 +172,7 @@ export const getAttendanceSessionById = async (req, res) => {
   const session = await Attendance.findOne({
     _id: req.params.id,
     teacherId: req.user._id,
-  });
+  }).populate("students.studentId", "name email rollNo role");
 
   if (!session) {
     return res.status(404).json({ message: "Attendance session not found" });
@@ -206,7 +207,9 @@ export const getAttendanceSessionsByDate = async (req, res) => {
       $gte: startOfDay,
       $lt: endOfDay,
     },
-  }).sort({ date: -1 });
+  })
+    .populate("students.studentId", "name email rollNo role")
+    .sort({ date: -1 });
 
   return res.json(sessions.map(serializeAttendance));
 };
@@ -228,6 +231,8 @@ export const endAttendanceSession = async (req, res) => {
   if (!session) {
     return res.status(404).json({ message: "Attendance session not found" });
   }
+
+  await session.populate("students.studentId", "name email rollNo role");
 
   return res.json({
     message: "Attendance session ended successfully",
