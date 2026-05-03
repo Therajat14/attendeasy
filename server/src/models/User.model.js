@@ -1,6 +1,16 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const studentSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    class: { type: String, required: true, trim: true },
+    section: { type: String, trim: true, default: "" },
+    rollNo: { type: Number, required: true },
+  },
+  { _id: false, timestamps: true },
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -10,6 +20,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["student", "teacher", "cr", "admin"],
       default: "student",
+    },
+    formToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    formTokenExpiresAt: {
+      type: Date,
+    },
+    students: {
+      type: [studentSchema],
+      default: [],
     },
   },
   { timestamps: true },
