@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import ThemeToggle from "../components/ThemeToggle";
+import AttendanceQRCode from "../components/attendance/AttendanceQRCode";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
@@ -17,6 +18,7 @@ interface AttendanceStudent {
 interface AttendanceSession {
   id: string;
   lectureName: string;
+  course: string;
   class: string;
   section: string;
   date: string;
@@ -47,13 +49,14 @@ function formatCountdown(expiresAt: string): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export default function Dashboard() {
+export default function TeacherDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [sessionForm, setSessionForm] = useState({
     lectureName: "",
+    course: "",
     class: "",
     section: "",
   });
@@ -131,7 +134,7 @@ export default function Dashboard() {
       const response = await api.post<StartAttendanceResponse>("/attendance/start", sessionForm);
       setSessions((prev) => [response.data.session, ...prev]);
       setSelectedSessionId(response.data.session.id);
-      setSessionForm({ lectureName: "", class: "", section: "" });
+      setSessionForm({ lectureName: "", course: "", class: "", section: "" });
       setSuccess("Attendance session started. Share the form link with students.");
     } catch (err) {
       setError(extractApiError(err));
@@ -168,7 +171,7 @@ export default function Dashboard() {
       <header className="border-b border-neutral-200 px-4 py-4 sm:px-8 dark:border-neutral-800">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Teacher Dashboard</h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">{user?.name} · {user?.role}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -209,7 +212,7 @@ export default function Dashboard() {
                 Create one 30-minute live session for a lecture. Only one active session is allowed at a time.
               </p>
 
-              <form onSubmit={handleStartSession} className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr_0.8fr_auto]">
+              <form onSubmit={handleStartSession} className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto]">
                 <input
                   required
                   value={sessionForm.lectureName}
@@ -217,20 +220,41 @@ export default function Dashboard() {
                   className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
                   placeholder="Lecture name"
                 />
-                <input
+                <select
+                  required
+                  value={sessionForm.course}
+                  onChange={(e) => setSessionForm({ ...sessionForm, course: e.target.value })}
+                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                >
+                  <option value="">Course</option>
+                  <option value="BCA">BCA</option>
+                  <option value="BTech">BTech</option>
+                  <option value="MCA">MCA</option>
+                  <option value="MBA">MBA</option>
+                </select>
+                <select
                   required
                   value={sessionForm.class}
                   onChange={(e) => setSessionForm({ ...sessionForm, class: e.target.value })}
                   className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                  placeholder="Class"
-                />
-                <input
+                >
+                  <option value="">Class</option>
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+                <select
                   required
                   value={sessionForm.section}
                   onChange={(e) => setSessionForm({ ...sessionForm, section: e.target.value })}
                   className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                  placeholder="Section"
-                />
+                >
+                  <option value="">Section</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
                 <button
                   type="submit"
                   disabled={startingSession || Boolean(activeSession)}
@@ -259,22 +283,31 @@ export default function Dashboard() {
 
               {activeSession ? (
                 <div className="mt-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-950">
-                  <div className="flex flex-col justify-between gap-4 lg:flex-row">
-                    <div>
-                      <h3 className="text-xl font-semibold">{activeSession.lectureName}</h3>
-                      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        {activeSession.class} · Section {activeSession.section}
-                      </p>
-                      <p className="mt-3 text-sm font-medium">Time remaining: {formatCountdown(activeSession.expiresAt)}</p>
-                      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        Students submitted: {activeSession.studentCount}
-                      </p>
-                    </div>
-                    <div className="space-y-3 lg:min-w-80">
+                  <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-center">
+                    <div className="space-y-5">
+                      <div>
+                        <h3 className="text-2xl font-semibold">{activeSession.lectureName}</h3>
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                          {activeSession.course} · {activeSession.class} · Section {activeSession.section}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-black">
+                          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Time remaining</p>
+                          <p className="mt-2 text-3xl font-bold tabular-nums">{formatCountdown(activeSession.expiresAt)}</p>
+                        </div>
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-black">
+                          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Marked present</p>
+                          <p className="mt-2 text-3xl font-bold">{activeSession.studentCount}</p>
+                        </div>
+                      </div>
+
                       <p className="break-all rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-black">
                         {activeSession.formUrl}
                       </p>
-                      <div className="flex gap-3">
+
+                      <div className="flex flex-col gap-3 sm:flex-row">
                         <button
                           type="button"
                           onClick={() => handleCopyFormLink(activeSession.formUrl)}
@@ -291,6 +324,10 @@ export default function Dashboard() {
                           {endingSession ? "Ending..." : "End session"}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <AttendanceQRCode value={activeSession.formUrl} />
                     </div>
                   </div>
                 </div>
@@ -323,7 +360,7 @@ export default function Dashboard() {
                           <div>
                             <h3 className="font-semibold">{session.lectureName}</h3>
                             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                              {new Date(session.date).toLocaleDateString()} · {session.class}/{session.section}
+                              {new Date(session.date).toLocaleDateString()} · {session.course} · {session.class}/{session.section}
                             </p>
                           </div>
                           <span className="rounded-full border border-neutral-300 px-2.5 py-1 text-xs dark:border-neutral-700">
@@ -343,7 +380,7 @@ export default function Dashboard() {
                     <div className="rounded-xl bg-neutral-50 p-4 dark:bg-neutral-950">
                       <h3 className="font-semibold">{selectedSession.lectureName}</h3>
                       <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        {selectedSession.class} · Section {selectedSession.section} · {new Date(selectedSession.date).toLocaleString()}
+                        {selectedSession.course} · {selectedSession.class} · Section {selectedSession.section} · {new Date(selectedSession.date).toLocaleString()}
                       </p>
                     </div>
 

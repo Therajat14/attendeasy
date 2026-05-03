@@ -4,6 +4,8 @@ import {
   getAttendanceSessionById,
   getAttendanceSessions,
   getAttendanceSessionsByDate,
+  getLiveAttendanceForStudent,
+  getStudentAttendanceHistory,
   markAttendance,
   startAttendanceSession,
 } from "../controllers/attendance.controller.js";
@@ -14,6 +16,8 @@ const router = express.Router();
 
 router.post("/start", protect, startAttendanceSession);
 router.post("/mark/:token", protect, formSubmissionRateLimiter, markAttendance);
+router.get("/live", protect, getLiveAttendanceForStudent);
+router.get("/student/history", protect, getStudentAttendanceHistory);
 router.get("/", protect, getAttendanceSessions);
 router.get("/date/:date", protect, getAttendanceSessionsByDate);
 router.get("/:id", protect, getAttendanceSessionById);

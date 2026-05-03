@@ -14,6 +14,9 @@ export default function Signup() {
     email: "",
     password: "",
     rollNo: "",
+    course: "",
+    class: "",
+    section: "",
     role: "student" as "student" | "teacher" | "cr",
   });
   const [error, setError] = useState("");
@@ -30,7 +33,14 @@ export default function Signup() {
         email: form.email,
         password: form.password,
         role: form.role,
-        ...(form.role === "student" ? { rollNo: Number(form.rollNo) } : {}),
+        ...(form.role === "student"
+          ? {
+              rollNo: Number(form.rollNo),
+              course: form.course,
+              class: form.class,
+              section: form.section,
+            }
+          : {}),
       });
       navigate("/dashboard", { replace: true });
     } catch (err) {
@@ -143,21 +153,79 @@ export default function Signup() {
             </div>
 
             {form.role === "student" && (
-              <div>
-                <label htmlFor="rollNo" className="mb-1 block text-sm font-medium">
-                  Roll number
-                </label>
-                <input
-                  id="rollNo"
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="Enter your roll number"
-                  className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                  value={form.rollNo}
-                  onChange={(e) => setForm({ ...form, rollNo: e.target.value })}
-                />
-              </div>
+              <>
+                <div>
+                  <label htmlFor="course" className="mb-1 block text-sm font-medium">
+                    Course
+                  </label>
+                  <select
+                    id="course"
+                    required
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                    value={form.course}
+                    onChange={(e) => setForm({ ...form, course: e.target.value })}
+                  >
+                    <option value="">Select course</option>
+                    <option value="BCA">BCA</option>
+                    <option value="BTech">BTech</option>
+                    <option value="MCA">MCA</option>
+                    <option value="MBA">MBA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="class" className="mb-1 block text-sm font-medium">
+                    Class
+                  </label>
+                  <select
+                    id="class"
+                    required
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                    value={form.class}
+                    onChange={(e) => setForm({ ...form, class: e.target.value })}
+                  >
+                    <option value="">Select class</option>
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="section" className="mb-1 block text-sm font-medium">
+                    Section
+                  </label>
+                  <select
+                    id="section"
+                    required
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                    value={form.section}
+                    onChange={(e) => setForm({ ...form, section: e.target.value })}
+                  >
+                    <option value="">Select section</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="rollNo" className="mb-1 block text-sm font-medium">
+                    Roll number
+                  </label>
+                  <input
+                    id="rollNo"
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="Enter your roll number"
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
+                    value={form.rollNo}
+                    onChange={(e) => setForm({ ...form, rollNo: e.target.value })}
+                  />
+                </div>
+              </>
             )}
 
             <button

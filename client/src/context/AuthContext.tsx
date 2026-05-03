@@ -15,6 +15,9 @@ interface RegisterPayload {
   password: string;
   role: User["role"];
   rollNo?: number;
+  course?: string;
+  class?: string;
+  section?: string;
 }
 
 interface AuthResponse {
@@ -41,6 +44,9 @@ function normalizeUser(raw: Partial<User> & { _id?: string; id?: string }): User
     email: raw.email || "",
     role: (raw.role as User["role"]) || "student",
     rollNo: raw.rollNo,
+    course: raw.course,
+    class: raw.class,
+    section: raw.section,
   };
 }
 

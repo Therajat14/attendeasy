@@ -21,6 +21,7 @@ const attendanceSchema = new mongoose.Schema(
       index: true,
     },
     lectureName: { type: String, required: true, trim: true },
+    course: { type: String, required: true, trim: true },
     class: { type: String, required: true, trim: true },
     section: { type: String, required: true, trim: true },
     date: { type: Date, default: Date.now, index: true },
@@ -42,5 +43,6 @@ const attendanceSchema = new mongoose.Schema(
 
 attendanceSchema.index({ teacherId: 1, date: -1 });
 attendanceSchema.index({ teacherId: 1, isActive: 1 });
+attendanceSchema.index({ course: 1, class: 1, section: 1, isActive: 1 });
 
 export default mongoose.model("Attendance", attendanceSchema);

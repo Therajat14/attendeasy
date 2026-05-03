@@ -15,15 +15,32 @@ function buildFormUrl(token) {
 function normalizeSessionPayload(body) {
   return {
     lectureName: typeof body.lectureName === "string" ? body.lectureName.trim() : "",
+    course: typeof body.course === "string" ? body.course.trim() : "",
     class: typeof body.class === "string" ? body.class.trim() : "",
     section: typeof body.section === "string" ? body.section.trim() : "",
   };
 }
 
+function isStudentInAttendanceGroup(student, attendance) {
+  return (
+    student.course === attendance.course &&
+    student.class === attendance.class &&
+    student.section === attendance.section
+  );
+}
+
 function serializeAttendance(attendance) {
   return {
     id: attendance._id,
+    teacher: attendance.teacherId?.name
+      ? {
+          id: attendance.teacherId._id,
+          name: attendance.teacherId.name,
+          email: attendance.teacherId.email,
+        }
+      : undefined,
     lectureName: attendance.lectureName,
+    course: attendance.course,
     class: attendance.class,
     section: attendance.section,
     date: attendance.date,
@@ -59,8 +76,8 @@ export const startAttendanceSession = async (req, res) => {
   }
 
   const session = normalizeSessionPayload(req.body);
-  if (!session.lectureName || !session.class || !session.section) {
-    return res.status(400).json({ message: "lectureName, class, and section are required" });
+  if (!session.lectureName || !session.course || !session.class || !session.section) {
+    return res.status(400).json({ message: "lectureName, course, class, and section are required" });
   }
 
   await expireOldSessions({ teacherId: req.user._id });
@@ -121,9 +138,18 @@ export const markAttendance = async (req, res) => {
     return res.status(400).json({ message: "Attendance session is not active" });
   }
 
+  if (!isStudentInAttendanceGroup(req.user, attendance)) {
+    return res.status(403).json({
+      message: "This attendance session is not for your course, class, or section",
+    });
+  }
+
   const updatedAttendance = await Attendance.findOneAndUpdate(
     {
       _id: attendance._id,
+      course: req.user.course,
+      class: req.user.class,
+      section: req.user.section,
       isActive: true,
       expiresAt: { $gt: new Date() },
       students: {
@@ -155,6 +181,10 @@ export const markAttendance = async (req, res) => {
 };
 
 export const getAttendanceSessions = async (req, res) => {
+  if (req.user.role !== "teacher") {
+    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+  }
+
   await expireOldSessions({ teacherId: req.user._id });
 
   const sessions = await Attendance.find({ teacherId: req.user._id })
@@ -165,6 +195,10 @@ export const getAttendanceSessions = async (req, res) => {
 };
 
 export const getAttendanceSessionById = async (req, res) => {
+  if (req.user.role !== "teacher") {
+    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+  }
+
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ message: "Invalid attendance session id" });
   }
@@ -187,6 +221,10 @@ export const getAttendanceSessionById = async (req, res) => {
 };
 
 export const getAttendanceSessionsByDate = async (req, res) => {
+  if (req.user.role !== "teacher") {
+    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+  }
+
   const requestedDate = new Date(req.params.date);
 
   if (Number.isNaN(requestedDate.getTime())) {
@@ -215,6 +253,10 @@ export const getAttendanceSessionsByDate = async (req, res) => {
 };
 
 export const endAttendanceSession = async (req, res) => {
+  if (req.user.role !== "teacher") {
+    return res.status(403).json({ message: "Only teachers can end attendance sessions" });
+  }
+
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ message: "Invalid attendance session id" });
   }
@@ -238,4 +280,51 @@ export const endAttendanceSession = async (req, res) => {
     message: "Attendance session ended successfully",
     session: serializeAttendance(session),
   });
+};
+
+export const getLiveAttendanceForStudent = async (req, res) => {
+  if (req.user.role !== "student") {
+    return res.status(403).json({ message: "Only students can view live attendance" });
+  }
+
+  if (!req.user.course || !req.user.class || !req.user.section) {
+    return res.status(400).json({ message: "Student course, class, and section are required" });
+  }
+
+  await expireOldSessions();
+
+  const sessions = await Attendance.find({
+    isActive: true,
+    expiresAt: { $gt: new Date() },
+    course: req.user.course,
+    class: req.user.class,
+    section: req.user.section,
+  })
+    .populate("teacherId", "name email")
+    .sort({ date: -1 });
+
+  return res.json(
+    sessions.map((session) => ({
+      ...serializeAttendance(session),
+      hasMarked: session.students.some(
+        (student) => student.studentId.toString() === req.user._id.toString(),
+      ),
+    })),
+  );
+};
+
+export const getStudentAttendanceHistory = async (req, res) => {
+  if (req.user.role !== "student") {
+    return res.status(403).json({ message: "Only students can view attendance history" });
+  }
+
+  await expireOldSessions();
+
+  const sessions = await Attendance.find({
+    "students.studentId": req.user._id,
+  })
+    .populate("teacherId", "name email")
+    .sort({ date: -1 });
+
+  return res.json(sessions.map(serializeAttendance));
 };
