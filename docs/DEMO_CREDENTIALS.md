@@ -32,24 +32,24 @@ Login is by **email address** — there is no separate user ID.
 
 ## Teacher
 
-| Email | Name | What you get |
-| --- | --- | --- |
-| `ananya.iyer@college.edu` | Dr. Ananya Iyer | Live session running, 6 past sessions |
-| `rahul.verma@college.edu` | Prof. Rahul Verma | 6 past sessions |
-| `sunita.nair@college.edu` | Dr. Sunita Nair | Clean slate, good for a first run |
+| Email                     | Name              | What you get                          |
+| ------------------------- | ----------------- | ------------------------------------- |
+| `ananya.iyer@college.edu` | Dr. Ananya Iyer   | Live session running, 6 past sessions |
+| `rahul.verma@college.edu` | Prof. Rahul Verma | 6 past sessions                       |
+| `sunita.nair@college.edu` | Dr. Sunita Nair   | Clean slate, good for a first run     |
 
 ## Student
 
 BCA · 2nd Year · Section A (the section with the live session):
 
-| Roll | Email |
-| --- | --- |
-| 01 | `aarav.patel@college.edu` |
-| 02 | `rohan.mehta@college.edu` |
-| 03 | `isha.sharma@college.edu` |
-| 04 | `kabir.nair@college.edu` |
-| 05 | `ananya.gupta@college.edu` |
-| 06 | `vivaan.joshi@college.edu` |
+| Roll | Email                      |
+| ---- | -------------------------- |
+| 01   | `aarav.patel@college.edu`  |
+| 02   | `rohan.mehta@college.edu`  |
+| 03   | `isha.sharma@college.edu`  |
+| 04   | `kabir.nair@college.edu`   |
+| 05   | `ananya.gupta@college.edu` |
+| 06   | `vivaan.joshi@college.edu` |
 
 The seed also creates 18 more students across BCA Section B and BTech
 Section A, so you can check that a student from another class is correctly
@@ -57,8 +57,8 @@ blocked from a session.
 
 ## Class representative
 
-| Email | Class |
-| --- | --- |
+| Email                     | Class                      |
+| ------------------------- | -------------------------- |
 | `karan.mehta@college.edu` | BCA · 2nd Year · Section A |
 | `priya.singh@college.edu` | BCA · 2nd Year · Section B |
 
@@ -72,11 +72,11 @@ blocked from a session.
 
 ## Things worth trying
 
-| Try this | Expected result |
-| --- | --- |
-| Sign in as a teacher | Live session with a QR code, roster filling in |
-| Sign in as `kabir.nair@college.edu` | The live lecture shows up for marking |
-| Mark the same lecture again | "You've already marked this lecture" |
-| Sign in as a BTech student and open the BCA link | Blocked — the session is not for your class |
-| Sign in as `rohan.mehta@college.edu` | 7 past lectures on the history page |
-| Close the session as the teacher | The student link stops working |
+| Try this                                         | Expected result                                |
+| ------------------------------------------------ | ---------------------------------------------- |
+| Sign in as a teacher                             | Live session with a QR code, roster filling in |
+| Sign in as `kabir.nair@college.edu`              | The live lecture shows up for marking          |
+| Mark the same lecture again                      | "You've already marked this lecture"           |
+| Sign in as a BTech student and open the BCA link | Blocked — the session is not for your class    |
+| Sign in as `rohan.mehta@college.edu`             | 7 past lectures on the history page            |
+| Close the session as the teacher                 | The student link stops working                 |

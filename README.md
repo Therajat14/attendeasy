@@ -146,11 +146,32 @@ Sample logins for the seeded data are listed in
 
 ```
 attendeasy/
-├── client/    # Frontend (React)
-├── server/    # Backend (Node.js)
-├── docs/      # Demo credentials
-└── README.md
+├── client/            # Web app (React + Vite)
+│   └── src/
+│       ├── components/   # reusable UI pieces
+│       ├── pages/        # one file per screen
+│       ├── layouts/      # page shells: marketing, auth, dashboard
+│       ├── context/      # shared state: auth, theme, toasts
+│       ├── hooks/        # data fetching + polling
+│       ├── lib/          # helpers, constants, types
+│       └── services/     # the API client
+│
+├── server/            # API (Express + MongoDB)
+│   └── src/
+│       ├── models/       # what MongoDB stores
+│       ├── controllers/  # the work each request does
+│       ├── routes/       # URL -> controller
+│       ├── middlewares/  # checks that run before a controller
+│       ├── config/       # setup that runs once
+│       ├── utils/        # small shared helpers
+│       └── seed/         # demo data script
+│
+└── docs/              # Demo credentials
 ```
+
+Each layer only imports the layer above it, so any request can be traced by
+opening four files. See [server/README.md](server/README.md) for a map of the
+API.
 
 ---
 
