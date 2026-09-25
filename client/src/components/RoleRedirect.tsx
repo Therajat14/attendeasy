@@ -1,26 +1,23 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import FullPageLoader from "./common/FullPageLoader";
 
 export default function RoleRedirect() {
   const { user, isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white text-black dark:bg-black dark:text-white">
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">Checking session...</p>
-      </div>
-    );
+    return <FullPageLoader label="Opening your workspace" />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === "teacher") {
+  if (user?.role === "teacher" || user?.role === "admin") {
     return <Navigate to="/teacher/dashboard" replace />;
   }
 
-  if (user?.role === "student") {
+  if (user?.role === "student" || user?.role === "cr") {
     return <Navigate to="/student/dashboard" replace />;
   }
 

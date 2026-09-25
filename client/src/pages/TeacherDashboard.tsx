@@ -1,426 +1,543 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import type { AxiosError } from "axios";
-import ThemeToggle from "../components/ThemeToggle";
+import {
+  AlertCircle,
+  CalendarPlus,
+  Check,
+  ClipboardCopy,
+  Clock3,
+  Play,
+  Radio,
+  Square,
+  Users,
+} from "lucide-react";
+import DashboardLayout from "../layouts/DashboardLayout";
+import PageHeader from "../components/common/PageHeader";
 import AttendanceQRCode from "../components/attendance/AttendanceQRCode";
+import QRPresentation from "../components/attendance/QRPresentation";
+import Alert from "../components/ui/Alert";
+import Avatar from "../components/ui/Avatar";
+import Badge, { LiveBadge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import { Card, CardHeader, StatCard } from "../components/ui/Card";
+import EmptyState from "../components/ui/EmptyState";
+import { SelectField, TextField } from "../components/ui/Field";
+import { SkeletonRow } from "../components/ui/Skeleton";
+import { useSessions } from "../hooks/useSessions";
+import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import { getErrorMessage } from "../lib/errors";
+import { formatTime, getRemainingTime, getShortName, toTitleCase } from "../lib/format";
+import { CLASSES, COURSES, SECTIONS } from "../lib/constants";
+import type { AttendanceSession, StartSessionResponse } from "../types/attendance";
 
-interface AttendanceStudent {
-  studentId: string;
-  name: string;
-  email: string;
-  rollNo: number | null;
-  submittedAt: string;
-}
-
-interface AttendanceSession {
-  id: string;
-  lectureName: string;
-  course: string;
-  class: string;
-  section: string;
-  date: string;
-  formUrl: string;
-  expiresAt: string;
-  isActive: boolean;
-  students: AttendanceStudent[];
-  studentCount: number;
-}
-
-interface StartAttendanceResponse {
-  formUrl: string;
-  expiresAt: string;
-  session: AttendanceSession;
-}
-
-function extractApiError(error: unknown): string {
-  const axiosError = error as AxiosError<{ message?: string }>;
-  return axiosError.response?.data?.message || "Something went wrong";
-}
-
-function formatCountdown(expiresAt: string): string {
-  const remainingMs = new Date(expiresAt).getTime() - Date.now();
-  if (remainingMs <= 0) return "Expired";
-
-  const minutes = Math.floor(remainingMs / 60000);
-  const seconds = Math.floor((remainingMs % 60000) / 1000);
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
+const emptyForm = { lectureName: "", course: "", class: "", section: "" };
 
 export default function TeacherDashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [sessionForm, setSessionForm] = useState({
-    lectureName: "",
-    course: "",
-    class: "",
-    section: "",
-  });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  const [startingSession, setStartingSession] = useState(false);
-  const [endingSession, setEndingSession] = useState(false);
+  const { user } = useAuth();
+  const { notify } = useToast();
+  const isTeacher = user?.role === "teacher";
+
+  const { sessions, setSessions, loading, refreshing, error, setError, refresh } =
+    useSessions({
+      enabled: isTeacher,
+    });
+
   const [now, setNow] = useState(Date.now());
-
-  const fetchSessions = async (showLoading = true) => {
-    if (user?.role !== "teacher") return;
-
-    if (showLoading) {
-      setLoadingSessions(true);
-    }
-    setError("");
-
-    try {
-      const response = await api.get<AttendanceSession[]>("/attendance");
-      setSessions(response.data);
-    } catch (err) {
-      setError(extractApiError(err));
-    } finally {
-      if (showLoading) {
-        setLoadingSessions(false);
-      }
-    }
-  };
+  const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof typeof emptyForm, string>>
+  >({});
+  const [starting, setStarting] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetchSessions();
-  }, [user?.role]);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (user?.role !== "teacher") return;
-
-    const intervalId = window.setInterval(() => {
-      fetchSessions(false);
-    }, 10000);
-
-    return () => window.clearInterval(intervalId);
-  }, [user?.role]);
-
   const activeSession = useMemo(
-    () => sessions.find((session) => session.isActive && new Date(session.expiresAt).getTime() > now),
+    () =>
+      sessions.find(
+        (session) => session.isActive && new Date(session.expiresAt).getTime() > now,
+      ),
     [sessions, now],
   );
 
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === selectedSessionId) || activeSession || sessions[0],
-    [activeSession, selectedSessionId, sessions],
+  const recentSessions = useMemo(
+    () => sessions.filter((session) => session.id !== activeSession?.id).slice(0, 4),
+    [sessions, activeSession?.id],
   );
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
+  const totals = useMemo(() => {
+    const totalSessions = sessions.length;
+    const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
+    const todaySessions = sessions.filter(
+      (session) =>
+        new Date(session.date).toDateString() === new Date(now).toDateString(),
+    );
+    const average = totalSessions ? Math.round(totalMarks / totalSessions) : 0;
 
-  const handleStartSession = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    return { totalSessions, todaySessions: todaySessions.length, average };
+  }, [sessions, now]);
+
+  const remaining = activeSession
+    ? getRemainingTime(activeSession.expiresAt, now)
+    : null;
+
+  const handleStart = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError("");
-    setSuccess("");
-    setStartingSession(true);
+
+    const nextErrors: Partial<Record<keyof typeof emptyForm, string>> = {};
+    if (form.lectureName.trim().length < 2)
+      nextErrors.lectureName = "Enter the subject or lecture name.";
+    if (!form.course) nextErrors.course = "Select a course.";
+    if (!form.class) nextErrors.class = "Select a year.";
+    if (!form.section) nextErrors.section = "Select a section.";
+
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+
+    setStarting(true);
 
     try {
-      const response = await api.post<StartAttendanceResponse>("/attendance/start", sessionForm);
-      setSessions((prev) => [response.data.session, ...prev]);
-      setSelectedSessionId(response.data.session.id);
-      setSessionForm({ lectureName: "", course: "", class: "", section: "" });
-      setSuccess("Attendance session started. Share the form link with students.");
+      const response = await api.post<StartSessionResponse>("/attendance/start", {
+        ...form,
+        lectureName: form.lectureName.trim(),
+      });
+
+      setSessions((current) => [response.data.session, ...current]);
+      setForm(emptyForm);
+      setFormErrors({});
+
+      notify({
+        title: "Session is live",
+        description: "Share the code so your class can mark attendance.",
+        tone: "success",
+      });
     } catch (err) {
-      setError(extractApiError(err));
+      const message = getErrorMessage(err, "We couldn't start the session.");
+
+      if (message.toLowerCase().includes("already have a live")) {
+        notify({
+          title: "A session is already running",
+          description: message,
+          tone: "error",
+        });
+        void refresh(false);
+      } else {
+        setError(message);
+      }
     } finally {
-      setStartingSession(false);
+      setStarting(false);
     }
   };
 
-  const handleCopyFormLink = async (formUrl: string) => {
-    await navigator.clipboard.writeText(formUrl);
-    setSuccess("Form link copied.");
-  };
+  const handleEnd = useCallback(
+    async (sessionId: string) => {
+      setEnding(true);
 
-  const handleEndSession = async (sessionId: string) => {
-    setError("");
-    setSuccess("");
-    setEndingSession(true);
+      try {
+        const response = await api.patch<{ session: AttendanceSession }>(
+          `/attendance/${sessionId}/end`,
+        );
+        setSessions((current) =>
+          current.map((session) =>
+            session.id === sessionId ? response.data.session : session,
+          ),
+        );
 
+        notify({
+          title: "Session closed",
+          description: "The attendance link is no longer active.",
+          tone: "info",
+        });
+      } catch (err) {
+        notify({
+          title: "Couldn't close the session",
+          description: getErrorMessage(err),
+          tone: "error",
+        });
+      } finally {
+        setEnding(false);
+      }
+    },
+    [setSessions, notify],
+  );
+
+  const handleCopy = async (formUrl: string) => {
     try {
-      const response = await api.patch<{ session: AttendanceSession }>(`/attendance/${sessionId}/end`);
-      setSessions((prev) =>
-        prev.map((session) => (session.id === sessionId ? response.data.session : session)),
-      );
-      setSuccess("Attendance session ended.");
-    } catch (err) {
-      setError(extractApiError(err));
-    } finally {
-      setEndingSession(false);
+      await navigator.clipboard.writeText(formUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2200);
+      notify({
+        title: "Link copied",
+        description: "Paste it anywhere to share.",
+        tone: "success",
+      });
+    } catch {
+      notify({
+        title: "Couldn't copy the link",
+        description: "Select the link and copy it manually.",
+        tone: "error",
+      });
     }
   };
+
+  if (!isTeacher) {
+    return (
+      <DashboardLayout contextLabel="Overview">
+        <PageHeader
+          eyebrow="Teacher workspace"
+          title="Attendance sessions"
+          description="Sessions are managed by teaching staff. If you have access, sign in with your teacher account."
+        />
+        <EmptyState
+          icon={<Users className="size-6" />}
+          title="You don't have teacher access"
+          description="This workspace is limited to teaching staff accounts."
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white text-black transition-colors duration-300 dark:bg-black dark:text-white">
-      <header className="border-b border-neutral-200 px-4 py-4 sm:px-8 dark:border-neutral-800">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Teacher Dashboard</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{user?.name} · {user?.role}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+    <DashboardLayout contextLabel="Overview">
+      <PageHeader
+        eyebrow="Overview"
+        title={`Good to see you, ${getShortName(user?.name)}`}
+        description="Start a lecture session, share the code, and watch your class mark in real time."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={refreshing}
+            loadingLabel="Refreshing"
+            onClick={() => void refresh(true)}
+          >
+            Refresh
+          </Button>
+        }
+      />
+
+      {error && (
+        <Alert
+          tone="danger"
+          icon={<AlertCircle className="size-4" />}
+          className="mb-6"
+          onDismiss={() => setError("")}
+        >
+          {error}
+        </Alert>
+      )}
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Session status"
+          value={activeSession ? "Live now" : "Idle"}
+          hint={
+            activeSession
+              ? `${activeSession.lectureName} is open`
+              : "No session is running"
+          }
+          icon={<Radio className="size-4" />}
+          tone={activeSession ? "success" : "default"}
+        />
+        <StatCard
+          label="Sessions today"
+          value={totals.todaySessions}
+          hint={`${totals.totalSessions} in total`}
+          icon={<CalendarPlus className="size-4" />}
+          tone="brand"
+        />
+        <StatCard
+          label="Average per session"
+          value={totals.average}
+          hint="Students marked per lecture"
+          icon={<Users className="size-4" />}
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
+        <Card>
+          <CardHeader
+            title="Start a session"
+            description="Attendance stays open for 30 minutes, or until you close it."
+            icon={<Play className="size-4" />}
+          />
+
+          <form onSubmit={handleStart} className="mt-5 space-y-4" noValidate>
+            <TextField
+              label="Subject or lecture"
+              placeholder="e.g. Data Structures"
+              value={form.lectureName}
+              error={formErrors.lectureName}
+              onChange={(event) =>
+                setForm({ ...form, lectureName: event.target.value })
+              }
+              disabled={Boolean(activeSession)}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <SelectField
+                label="Course"
+                placeholder="Select"
+                options={COURSES.map((course) => ({
+                  value: course,
+                  label: course,
+                }))}
+                value={form.course}
+                error={formErrors.course}
+                onChange={(event) => setForm({ ...form, course: event.target.value })}
+                disabled={Boolean(activeSession)}
+              />
+              <SelectField
+                label="Year"
+                placeholder="Select"
+                options={CLASSES.map((year) => ({
+                  value: year,
+                  label: year.replace(/st|nd|rd|th/g, ""),
+                }))}
+                value={form.class}
+                error={formErrors.class}
+                onChange={(event) => setForm({ ...form, class: event.target.value })}
+                disabled={Boolean(activeSession)}
+              />
+            </div>
+
+            <SelectField
+              label="Section"
+              placeholder="Select"
+              options={SECTIONS.map((section) => ({
+                value: section,
+                label: `Section ${section}`,
+              }))}
+              value={form.section}
+              error={formErrors.section}
+              onChange={(event) => setForm({ ...form, section: event.target.value })}
+              disabled={Boolean(activeSession)}
+            />
+
+            <Button
+              type="submit"
+              fullWidth
+              size="lg"
+              loading={starting}
+              loadingLabel="Opening session"
+              disabled={Boolean(activeSession)}
+              leadingIcon={!starting ? <Play className="size-4" /> : undefined}
             >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+              {activeSession ? "Session already running" : "Open attendance"}
+            </Button>
+          </form>
+        </Card>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
-        {user?.role !== "teacher" ? (
-          <section className="rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">
-            <h2 className="text-2xl font-bold">Welcome, {user?.name}</h2>
-            <p className="mt-2 text-neutral-600 dark:text-neutral-400">Attendance management is currently available for teachers.</p>
-          </section>
-        ) : (
-          <div className="space-y-6">
-            {error && (
-              <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-                {error}
-              </p>
-            )}
+        <div className="min-w-0 space-y-6">
+          {activeSession && remaining ? (
+            <Card className="border-brand-200 dark:border-brand-500/30">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <LiveBadge />
+                    <Badge tone="neutral">
+                      {toTitleCase(activeSession.lectureName)}
+                    </Badge>
+                  </div>
+                  <h2 className="mt-3 text-[19px] font-extrabold text-ink-900 dark:text-white">
+                    {activeSession.lectureName}
+                  </h2>
+                  <p className="mt-1 text-[13px] text-ink-500 dark:text-ink-400">
+                    {activeSession.course} · {activeSession.class} · Section{" "}
+                    {activeSession.section}
+                  </p>
+                </div>
 
-            {success && (
-              <p className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
-                {success}
-              </p>
-            )}
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+                    Time left
+                  </p>
+                  <p
+                    className={`mt-1 font-display text-2xl font-extrabold tabular-nums ${
+                      remaining.isUrgent
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-ink-900 dark:text-white"
+                    }`}
+                  >
+                    {remaining.label}
+                  </p>
+                </div>
+              </div>
 
-            <section className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-800 dark:bg-neutral-950">
-              <h2 className="text-2xl font-bold">Start attendance</h2>
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                Create one 30-minute live session for a lecture. Only one active session is allowed at a time.
-              </p>
-
-              <form onSubmit={handleStartSession} className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto]">
-                <input
-                  required
-                  value={sessionForm.lectureName}
-                  onChange={(e) => setSessionForm({ ...sessionForm, lectureName: e.target.value })}
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                  placeholder="Lecture name"
+              <div className="mt-5 grid gap-5 sm:grid-cols-[auto_1fr]">
+                <AttendanceQRCode
+                  value={activeSession.formUrl}
+                  label="Scan to mark attendance"
+                  caption={`Opens for ${activeSession.course} · ${activeSectionLabel(activeSession)}`}
                 />
-                <select
-                  required
-                  value={sessionForm.course}
-                  onChange={(e) => setSessionForm({ ...sessionForm, course: e.target.value })}
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                >
-                  <option value="">Course</option>
-                  <option value="BCA">BCA</option>
-                  <option value="BTech">BTech</option>
-                  <option value="MCA">MCA</option>
-                  <option value="MBA">MBA</option>
-                </select>
-                <select
-                  required
-                  value={sessionForm.class}
-                  onChange={(e) => setSessionForm({ ...sessionForm, class: e.target.value })}
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                >
-                  <option value="">Class</option>
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                </select>
-                <select
-                  required
-                  value={sessionForm.section}
-                  onChange={(e) => setSessionForm({ ...sessionForm, section: e.target.value })}
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:border-white dark:focus:ring-neutral-700"
-                >
-                  <option value="">Section</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={startingSession || Boolean(activeSession)}
-                  className="rounded-xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
-                >
-                  {startingSession ? "Starting..." : "Generate link"}
-                </button>
-              </form>
-            </section>
 
-            <section className="rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                <div>
-                  <h2 className="text-2xl font-bold">Active session</h2>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">Live submissions update when you refresh or start/end a session.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => fetchSessions()}
-                  disabled={loadingSessions}
-                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium transition hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-neutral-900"
-                >
-                  {loadingSessions ? "Refreshing..." : "Refresh"}
-                </button>
-              </div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <QRPresentation
+                    value={activeSession.formUrl}
+                    title={activeSession.lectureName}
+                    subtitle={`${activeSession.course} · ${activeSectionLabel(activeSession)}`}
+                    timeLeft={remaining?.label}
+                    isUrgent={remaining?.isUrgent}
+                  />
+                  <div className="rounded-2xl bg-ink-50 p-4 dark:bg-ink-800/50">
+                    <p className="text-[11.5px] font-semibold tracking-wide text-ink-500 uppercase dark:text-ink-400">
+                      Marked present
+                    </p>
+                    <p className="mt-1.5 font-display text-3xl font-extrabold text-ink-900 dark:text-white">
+                      {activeSession.studentCount}
+                    </p>
+                  </div>
 
-              {activeSession ? (
-                <div className="mt-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-950">
-                  <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-center">
-                    <div className="space-y-5">
-                      <div>
-                        <h3 className="text-2xl font-semibold">{activeSession.lectureName}</h3>
-                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                          {activeSession.course} · {activeSession.class} · Section {activeSession.section}
-                        </p>
-                      </div>
+                  <div className="rounded-2xl border border-ink-200/80 p-4 dark:border-ink-800">
+                    <p className="text-[11.5px] font-semibold tracking-wide text-ink-500 uppercase dark:text-ink-400">
+                      How students join
+                    </p>
+                    <p className="mt-1.5 text-[12.5px] text-ink-600 dark:text-ink-300">
+                      Share the code on screen, or send the link to your class group.
+                    </p>
+                  </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-black">
-                          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Time remaining</p>
-                          <p className="mt-2 text-3xl font-bold tabular-nums">{formatCountdown(activeSession.expiresAt)}</p>
-                        </div>
-                        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-black">
-                          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Marked present</p>
-                          <p className="mt-2 text-3xl font-bold">{activeSession.studentCount}</p>
-                        </div>
-                      </div>
+                  <div className="mt-auto flex flex-col gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void handleCopy(activeSession.formUrl)}
+                      leadingIcon={
+                        copied ? (
+                          <Check className="size-4 text-emerald-500" />
+                        ) : (
+                          <ClipboardCopy className="size-4" />
+                        )
+                      }
+                    >
+                      {copied ? "Copied" : "Copy link"}
+                    </Button>
 
-                      <p className="break-all rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-black">
-                        {activeSession.formUrl}
-                      </p>
-
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyFormLink(activeSession.formUrl)}
-                          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-                        >
-                          Copy link
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEndSession(activeSession.id)}
-                          disabled={endingSession}
-                          className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
-                        >
-                          {endingSession ? "Ending..." : "End session"}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-center">
-                      <AttendanceQRCode value={activeSession.formUrl} />
-                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      loading={ending}
+                      loadingLabel="Closing"
+                      onClick={() => void handleEnd(activeSession.id)}
+                      leadingIcon={
+                        !ending ? <Square className="size-3.5" /> : undefined
+                      }
+                    >
+                      Close session
+                    </Button>
                   </div>
                 </div>
-              ) : (
-                <p className="mt-5 rounded-xl border border-dashed border-neutral-300 p-5 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-                  No live attendance session right now.
+              </div>
+
+              <div className="mt-5 border-t border-ink-200/80 pt-4 dark:border-ink-800">
+                <p className="mb-3 text-[12px] font-semibold text-ink-500 dark:text-ink-400">
+                  Marking now
                 </p>
-              )}
-            </section>
 
-            <section className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-              <div className="rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">
-                <h2 className="text-2xl font-bold">Past attendance</h2>
-                <div className="mt-5 space-y-3">
-                  {sessions.length === 0 ? (
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">No attendance sessions yet.</p>
-                  ) : (
-                    sessions.map((session) => (
-                      <button
-                        key={session.id}
-                        type="button"
-                        onClick={() => setSelectedSessionId(session.id)}
-                        className={`block w-full rounded-xl border p-4 text-left transition hover:bg-neutral-50 dark:hover:bg-neutral-950 ${
-                          selectedSession?.id === session.id
-                            ? "border-black dark:border-white"
-                            : "border-neutral-200 dark:border-neutral-800"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-semibold">{session.lectureName}</h3>
-                            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                              {new Date(session.date).toLocaleDateString()} · {session.course} · {session.class}/{session.section}
-                            </p>
-                          </div>
-                          <span className="rounded-full border border-neutral-300 px-2.5 py-1 text-xs dark:border-neutral-700">
-                            {session.studentCount} students
-                          </span>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">
-                <h2 className="text-2xl font-bold">Session students</h2>
-                {selectedSession ? (
-                  <div className="mt-5">
-                    <div className="rounded-xl bg-neutral-50 p-4 dark:bg-neutral-950">
-                      <h3 className="font-semibold">{selectedSession.lectureName}</h3>
-                      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        {selectedSession.course} · {selectedSession.class} · Section {selectedSession.section} · {new Date(selectedSession.date).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-                      {selectedSession.students.length === 0 ? (
-                        <p className="p-4 text-sm text-neutral-600 dark:text-neutral-400">No students submitted yet.</p>
-                      ) : (
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-neutral-50 text-neutral-600 dark:bg-neutral-950 dark:text-neutral-400">
-                            <tr>
-                              <th className="px-4 py-3 font-medium">Roll No</th>
-                              <th className="px-4 py-3 font-medium">Name</th>
-                              <th className="px-4 py-3 font-medium">Email</th>
-                              <th className="px-4 py-3 font-medium">Submitted</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedSession.students.map((student) => (
-                              <tr key={`${selectedSession.id}-${student.studentId}`} className="border-t border-neutral-200 dark:border-neutral-800">
-                                <td className="px-4 py-3">{student.rollNo ?? "N/A"}</td>
-                                <td className="px-4 py-3">{student.name}</td>
-                                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{student.email || "Not available"}</td>
-                                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                                  {new Date(student.submittedAt).toLocaleTimeString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
+                {activeSession.students.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-ink-200 px-4 py-5 text-center text-[12.5px] text-ink-500 dark:border-ink-700 dark:text-ink-400">
+                    Nobody has marked attendance yet. Share the code to get started.
+                  </p>
                 ) : (
-                  <p className="mt-5 text-sm text-neutral-600 dark:text-neutral-400">Select a session to view students.</p>
+                  <ul className="scrollbar-slim -mx-1 max-h-64 space-y-1.5 overflow-y-auto px-1">
+                    {activeSession.students.map((student) => (
+                      <li
+                        key={`${activeSession.id}-${student.studentId}`}
+                        className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-ink-50 dark:hover:bg-ink-800/50"
+                      >
+                        <Avatar name={student.name} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-ink-900 dark:text-white">
+                            {student.name}
+                          </p>
+                          <p className="text-[11.5px] text-ink-500 dark:text-ink-400">
+                            Roll {student.rollNo ?? "—"}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Check className="size-3.5" />
+                          {formatTime(student.submittedAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
-            </section>
-          </div>
-        )}
-      </main>
-    </div>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader
+                title="No session running"
+                description="Open a session and share the code to start taking attendance."
+                icon={<Clock3 className="size-4" />}
+              />
+              <div className="mt-5">
+                <EmptyState
+                  compact
+                  icon={<Radio className="size-5" />}
+                  title="You're all clear"
+                  description="Start a session from the panel and your class code will appear here."
+                />
+              </div>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader
+              title="Recent sessions"
+              description="Your latest lectures and how many students attended."
+              icon={<CalendarPlus className="size-4" />}
+            />
+
+            <div className="mt-5">
+              {loading ? (
+                <div className="overflow-hidden rounded-xl border border-ink-200/80 dark:border-ink-800">
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </div>
+              ) : recentSessions.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-ink-200 px-4 py-6 text-center text-[12.5px] text-ink-500 dark:border-ink-700 dark:text-ink-400">
+                  Your previous sessions will appear here.
+                </p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {recentSessions.map((session) => (
+                    <li
+                      key={session.id}
+                      className="flex items-center gap-3 rounded-xl border border-ink-200/80 px-3.5 py-3 dark:border-ink-800"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-bold text-ink-900 dark:text-white">
+                          {session.lectureName}
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] text-ink-500 dark:text-ink-400">
+                          {session.course} · {session.class} · Section {session.section}{" "}
+                          · {formatTime(session.date)}
+                        </p>
+                      </div>
+                      <Badge tone={session.isActive ? "success" : "neutral"}>
+                        {session.studentCount} present
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </DashboardLayout>
   );
+}
+
+function activeSectionLabel(session: { class: string; section: string }): string {
+  return `${session.class} · Section ${session.section}`;
 }

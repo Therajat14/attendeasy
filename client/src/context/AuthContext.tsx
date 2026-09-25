@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import type { AxiosError } from "axios";
+import type { ReactNode } from "react";
 import { api, getStoredToken, setAuthToken, setStoredToken } from "../services/api";
+import { getErrorMessage } from "../lib/errors";
 import type { User } from "../types/user";
 
 interface LoginPayload {
@@ -51,8 +52,7 @@ function normalizeUser(raw: Partial<User> & { _id?: string; id?: string }): User
 }
 
 function extractApiError(error: unknown): string {
-  const axiosError = error as AxiosError<{ message?: string }>;
-  return axiosError.response?.data?.message || "Something went wrong";
+  return getErrorMessage(error, "We couldn't complete that request. Please try again.");
 }
 
 export function useAuth(): AuthContextType {
@@ -65,14 +65,13 @@ export function useAuth(): AuthContextType {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(getStoredToken()));
 
   useEffect(() => {
     const token = getStoredToken();
     setAuthToken(token);
 
     if (!token) {
-      setLoading(false);
       return;
     }
 
@@ -102,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         return Promise.reject(error);
-      }
+      },
     );
 
     return () => {
@@ -153,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
     }),
-    [user, loading]
+    [user, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

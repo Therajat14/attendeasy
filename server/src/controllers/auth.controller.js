@@ -16,12 +16,20 @@ export const register = async (req, res) => {
     return res.status(400).json({ message: "User already exists" });
   }
 
-  if (normalizedRole === "student" && (!Number.isInteger(normalizedRollNo) || normalizedRollNo < 1)) {
+  if (
+    normalizedRole === "student" &&
+    (!Number.isInteger(normalizedRollNo) || normalizedRollNo < 1)
+  ) {
     return res.status(400).json({ message: "Roll number is required for students" });
   }
 
-  if (normalizedRole === "student" && (!normalizedCourse || !normalizedClass || !normalizedSection)) {
-    return res.status(400).json({ message: "Course, class, and section are required for students" });
+  if (
+    normalizedRole === "student" &&
+    (!normalizedCourse || !normalizedClass || !normalizedSection)
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Course, class, and section are required for students" });
   }
 
   const user = await User.create({

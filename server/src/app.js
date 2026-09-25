@@ -6,6 +6,8 @@ import { errorHandler } from "./middlewares/error.middleware.js";
 
 const app = express();
 
+app.use((req, res) => console.log(req.method + " " + req.url));
+
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);

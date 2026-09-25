@@ -48,13 +48,18 @@ function serializeAttendance(attendance) {
     formUrl: buildFormUrl(attendance.formToken),
     expiresAt: attendance.expiresAt,
     isActive: attendance.isActive,
-    students: attendance.students.map((student) => ({
-      studentId: student.studentId?._id || student.studentId,
-      name: student.studentId?.name || "Unknown student",
-      email: student.studentId?.email || "",
-      rollNo: student.studentId?.rollNo || null,
-      submittedAt: student.submittedAt,
-    })).sort((a, b) => (a.rollNo ?? Number.MAX_SAFE_INTEGER) - (b.rollNo ?? Number.MAX_SAFE_INTEGER)),
+    students: attendance.students
+      .map((student) => ({
+        studentId: student.studentId?._id || student.studentId,
+        name: student.studentId?.name || "Unknown student",
+        email: student.studentId?.email || "",
+        rollNo: student.studentId?.rollNo || null,
+        submittedAt: student.submittedAt,
+      }))
+      .sort(
+        (a, b) =>
+          (a.rollNo ?? Number.MAX_SAFE_INTEGER) - (b.rollNo ?? Number.MAX_SAFE_INTEGER),
+      ),
     studentCount: attendance.students.length,
   };
 }
@@ -72,12 +77,16 @@ async function expireOldSessions(filter = {}) {
 
 export const startAttendanceSession = async (req, res) => {
   if (req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Only teachers can start attendance sessions" });
+    return res
+      .status(403)
+      .json({ message: "Only teachers can start attendance sessions" });
   }
 
   const session = normalizeSessionPayload(req.body);
   if (!session.lectureName || !session.course || !session.class || !session.section) {
-    return res.status(400).json({ message: "lectureName, course, class, and section are required" });
+    return res
+      .status(400)
+      .json({ message: "lectureName, course, class, and section are required" });
   }
 
   await expireOldSessions({ teacherId: req.user._id });
@@ -89,7 +98,10 @@ export const startAttendanceSession = async (req, res) => {
   });
 
   if (existingActiveSession) {
-    await existingActiveSession.populate("students.studentId", "name email rollNo role");
+    await existingActiveSession.populate(
+      "students.studentId",
+      "name email rollNo role",
+    );
 
     return res.status(409).json({
       message: "You already have an active attendance session",
@@ -182,7 +194,9 @@ export const markAttendance = async (req, res) => {
 
 export const getAttendanceSessions = async (req, res) => {
   if (req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+    return res
+      .status(403)
+      .json({ message: "Only teachers can view attendance sessions" });
   }
 
   await expireOldSessions({ teacherId: req.user._id });
@@ -196,7 +210,9 @@ export const getAttendanceSessions = async (req, res) => {
 
 export const getAttendanceSessionById = async (req, res) => {
   if (req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+    return res
+      .status(403)
+      .json({ message: "Only teachers can view attendance sessions" });
   }
 
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -222,7 +238,9 @@ export const getAttendanceSessionById = async (req, res) => {
 
 export const getAttendanceSessionsByDate = async (req, res) => {
   if (req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Only teachers can view attendance sessions" });
+    return res
+      .status(403)
+      .json({ message: "Only teachers can view attendance sessions" });
   }
 
   const requestedDate = new Date(req.params.date);
@@ -254,7 +272,9 @@ export const getAttendanceSessionsByDate = async (req, res) => {
 
 export const endAttendanceSession = async (req, res) => {
   if (req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Only teachers can end attendance sessions" });
+    return res
+      .status(403)
+      .json({ message: "Only teachers can end attendance sessions" });
   }
 
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -288,7 +308,9 @@ export const getLiveAttendanceForStudent = async (req, res) => {
   }
 
   if (!req.user.course || !req.user.class || !req.user.section) {
-    return res.status(400).json({ message: "Student course, class, and section are required" });
+    return res
+      .status(400)
+      .json({ message: "Student course, class, and section are required" });
   }
 
   await expireOldSessions();
@@ -315,7 +337,9 @@ export const getLiveAttendanceForStudent = async (req, res) => {
 
 export const getStudentAttendanceHistory = async (req, res) => {
   if (req.user.role !== "student") {
-    return res.status(403).json({ message: "Only students can view attendance history" });
+    return res
+      .status(403)
+      .json({ message: "Only students can view attendance history" });
   }
 
   await expireOldSessions();

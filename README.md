@@ -32,36 +32,37 @@ The system minimizes proxy attendance while keeping the workflow simple and effi
 
 ### 🎯 Smart Attendance
 
-- QR-based attendance sessions
-- Shareable attendance links
-- Time-restricted attendance windows
+- One shared code per lecture — students mark in a single tap
+- Time-boxed attendance windows that close on their own
+- Live roster for the teacher as students mark
 
-### 🔐 Anti-Proxy Design
+### 🔐 Built for Fairness
 
-- One attendance per student per session
-- Device-level validation (planned)
+- One attendance mark per student per session
+- Codes matched to a course, year and section
 - Automatic session expiry
+- Device-level validation (planned)
 
 ### 👥 Role-Based Workflow
 
-- **Students:** Mark attendance and view history
-- **Teachers:** Manage sessions and track reports
+- **Students:** Mark attendance and track their own record
+- **Teachers:** Run sessions and review class records
 - **CRs:** Take attendance on behalf of teachers
 - **Admins:** Manage academic structure (future-ready)
 
 ### 🎓 College-Focused System
 
 - Subject-wise attendance tracking
-- Class, semester, and section mapping
+- Class, year, and section mapping
 - Attendance percentage calculation
-- Low-attendance alerts (UI-ready)
+- Low-attendance insights
 
-### 🌗 Modern UI Experience
+### 🌗 Polished Experience
 
-- Minimal black & white design
-- Light / Dark mode toggle
+- Clear, product-first interface with no technical noise
+- Light / Dark mode with no screen flash on load
 - Mobile-first responsive layout
-- Clean and distraction-free dashboards
+- Purpose-built workspaces for teachers and students
 
 ---
 
@@ -98,10 +99,10 @@ AttendEasy is built with the belief that:
 
 ## 🧩 Current Status
 
-- ✅ UI Prototype Completed
-- 🔄 Backend Development In Progress
-- 🔜 Authentication & Attendance APIs
-- 🔜 Production Deployment
+- ✅ Product interface complete (marketing site, sign in, teacher & student workspaces)
+- ✅ Attendance sessions, live roster, records and CSV export
+- 🔄 Backend hardening and deployment
+- 🔜 Real-time updates, notifications and leave management
 
 ---
 

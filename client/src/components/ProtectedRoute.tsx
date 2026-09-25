@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import FullPageLoader from "./common/FullPageLoader";
 import type { User } from "../types/user";
 
 interface ProtectedRouteProps {
@@ -8,15 +9,14 @@ interface ProtectedRouteProps {
   allowedRoles?: User["role"][];
 }
 
-export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+export default function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
   const { user, isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white text-black dark:bg-black dark:text-white">
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">Checking session...</p>
-      </div>
-    );
+    return <FullPageLoader label="Checking your access" />;
   }
 
   if (!isAuthenticated) {
