@@ -8,7 +8,7 @@ are real, so you can open any file and put your finger on the answer.
 ## 1. The shape of the project in one picture
 
 ```
-Browser (React + TypeScript)
+Browser (React + JavaScript)
 ┌───────────────────────────────────────────────────────────────┐
 │  pages/           Screens: login, teacher, student, records    │
 │      │                                                          │
@@ -18,7 +18,7 @@ Browser (React + TypeScript)
 │      │                                                          │
 │  hooks/           useSessions, useStudentAttendance (fetch+poll)│
 │      │                                                          │
-│  services/api.ts  one axios instance ──────────────────────────┼──┐
+│  services/api.js  one axios instance ──────────────────────────┼──┐
 │  lib/             formatting + friendly error messages          │  │
 └───────────────────────────────────────────────────────────────┘  │
                                                                    │  HTTPS, cookies travel
@@ -56,10 +56,10 @@ browser sends it by itself.
 ```
 1. User types email + password on /login
         │
-2. Login.tsx calls login() from AuthContext
+2. Login.jsx calls login() from AuthContext
         │
 3. AuthContext does  api.post("/auth/login", input)
-        │            api.ts has withCredentials: true
+        │            api.js has withCredentials: true
         ▼
 4. auth.controller.js → login()
         │  a) find the user by email
@@ -97,8 +97,8 @@ browser sends it by itself.
 | Read and verify the cookie                | `server/src/middlewares/auth.middleware.js` | 12, 21, 27 |
 | Turn the Cookie header into `req.cookies` | `server/src/app.js`                         | 35         |
 | Allow the real origin (not `*`)           | `server/src/app.js`                         | 21, 27     |
-| Send cookies from the browser             | `client/src/services/api.ts`                | 10         |
-| "Who am I?" on page load                  | `client/src/context/AuthContext.tsx`        | 49         |
+| Send cookies from the browser             | `client/src/services/api.js`                | 10         |
+| "Who am I?" on page load                  | `client/src/context/AuthContext.jsx`        | 26, 29     |
 
 ### Why each cookie flag
 
@@ -192,7 +192,7 @@ without reading the controller.
 ### "Why is there a `getMe` endpoint at all?"
 
 Because the cookie can expire while the tab is still open. On every page load
-`AuthContext` calls `/auth/me` (line 49). If the cookie is still valid the
+`AuthContext` calls `/auth/me` (line 29). If the cookie is still valid the
 server replies with the user; if not, it replies 401 and the app shows the
 login page. Without this, a stale tab would render an empty dashboard until the
 first failed action.
@@ -225,7 +225,7 @@ one it asked with.
 ### 4. `withCredentials: true`
 
 Axios does not send cookies to another origin unless you ask. That one line in
-`api.ts` is what makes the cookie reach the API from the Vite dev server.
+`api.js` is what makes the cookie reach the API from the Vite dev server.
 
 ### 5. `useCallback` in the two data hooks
 
@@ -319,12 +319,12 @@ that break quietly.
 
 Saying this out loud in an interview is a strength, not a weakness.
 
-1. **`StudentHistory.tsx:266` compares a count against a percentage.** The "Good
+1. **`StudentHistory.jsx:263` compares a count against a percentage.** The "Good
    to know" card tests `subject.count < LOW_ATTENDANCE_THRESHOLD`, where the
    count is "lectures attended in this subject" and the threshold is 75, meant
    as a percentage. Any subject with fewer than 75 lectures attended shows the
    warning, so a student with 3 out of 3 is told to attend more. The progress bar
-   a few lines above (line 231) uses `share`, a real percentage, and is correct.
+   a few lines above (line 228) uses `share`, a real percentage, and is correct.
    It was left as-is because fixing it changes what users see, so it needs a
    decision rather than a quiet patch.
 2. **The rate limiter is per process and in memory.** A restart clears it, and
