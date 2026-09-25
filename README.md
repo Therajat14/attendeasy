@@ -97,6 +97,31 @@ AttendEasy is built with the belief that:
 
 ---
 
+---
+
+## ⚡ Running Locally
+
+```bash
+# 1. install
+npm install --prefix server
+npm install --prefix client
+
+# 2. configure
+cp server/.env.example server/.env
+
+# 3. load sample classes, teachers and students
+cd server && npm run seed
+
+# 4. start
+npm run dev:server   # API
+npm run dev:client   # web app
+```
+
+Sample logins for the seeded data are listed in
+[docs/DEMO_CREDENTIALS.md](docs/DEMO_CREDENTIALS.md).
+
+---
+
 ## 🧩 Current Status
 
 - ✅ Product interface complete (marketing site, sign in, teacher & student workspaces)
@@ -123,6 +148,7 @@ AttendEasy is built with the belief that:
 attendeasy/
 ├── client/    # Frontend (React)
 ├── server/    # Backend (Node.js)
+├── docs/      # Demo credentials
 └── README.md
 ```
 

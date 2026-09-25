@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "node src/seed/seed.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
