@@ -38,7 +38,7 @@ through.
 | `routes/`      | URL to controller mapping          | No logic, just wiring                    |
 | `middlewares/` | Code that runs before a controller | Sign-in check, rate limit, error handler |
 | `config/`      | Setup that runs once               | Database connection                      |
-| `utils/`       | Small helpers reused across files  | Token signing                            |
+| `utils/`       | Small helpers reused across files  | Token signing, cookie settings           |
 | `seed/`        | Demo data script                   | Never imported by the app                |
 
 Each folder depends only on the ones above it in that table. A controller can
@@ -53,15 +53,17 @@ it touches.
 | `src/server.js`                      | The whole boot sequence, 22 lines               |
 | `src/app.js`                         | Every route the API has, on one screen          |
 | `src/routes/auth.routes.js`          | Smallest complete example of the four-file flow |
-| `src/controllers/auth.controller.js` | Register, login, and who am I                   |
+| `src/controllers/auth.controller.js` | Register, login, logout, and who am I           |
+| `src/utils/authCookie.util.js`       | The one place cookie options are defined        |
 
 ## The API
 
 | Method | URL                               | Who       | What it does                            |
 | ------ | --------------------------------- | --------- | --------------------------------------- |
 | POST   | `/api/auth/register`              | anyone    | Create an account                       |
-| POST   | `/api/auth/login`                 | anyone    | Sign in, returns a token                |
+| POST   | `/api/auth/login`                 | anyone    | Sign in, sets the login cookie          |
 | GET    | `/api/auth/me`                    | signed in | Current user                            |
+| POST   | `/api/auth/logout`                | anyone    | Clear the login cookie                  |
 | POST   | `/api/attendance/start`           | teacher   | Open a 30 minute session                |
 | POST   | `/api/attendance/mark/:token`     | student   | Mark attendance using the link          |
 | GET    | `/api/attendance/live`            | student   | Lectures running right now for my class |
@@ -71,7 +73,16 @@ it touches.
 | GET    | `/api/attendance/:id`             | teacher   | One session with its roster             |
 | PATCH  | `/api/attendance/:id/end`         | teacher   | Close a session early                   |
 
-Protected routes need a header: `Authorization: Bearer <token>`.
+Protected routes need the login cookie. There is no `Authorization` header and
+the frontend never sees the token, because it is sent as an `httpOnly` cookie
+that page JavaScript cannot read.
+
+| Cookie setting | Why                                                                 |
+| -------------- | ------------------------------------------------------------------- |
+| `httpOnly`     | A successful XSS cannot read the token out of the cookie            |
+| `sameSite`     | `lax` stops other sites from sending the cookie with their requests |
+| `secure`       | Only sent over HTTPS, and only outside development                  |
+| `maxAge`       | 7 days, matching the lifetime inside the token                      |
 
 ## Environment
 

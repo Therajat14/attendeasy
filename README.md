@@ -84,12 +84,12 @@ AttendEasy is built with the belief that:
 - Tailwind CSS
 - React Router
 
-### Backend (In Progress)
+### Backend
 
 - Node.js
 - Express
-- MongoDB
-- JWT Authentication
+- MongoDB with Mongoose
+- JWT authentication in an httpOnly cookie
 
 ### Deployment
 
@@ -126,8 +126,17 @@ Sample logins for the seeded data are listed in
 
 - ✅ Product interface complete (marketing site, sign in, teacher & student workspaces)
 - ✅ Attendance sessions, live roster, records and CSV export
+- ✅ Authentication with a JWT in an httpOnly cookie
 - 🔄 Backend hardening and deployment
 - 🔜 Real-time updates, notifications and leave management
+
+### 📖 Documentation
+
+| Guide                                                | What it covers                                                                                                  |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [server/README.md](server/README.md)                 | How a request travels, every endpoint, environment                                                              |
+| [docs/INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md)   | Architecture diagram, the full sign-in flow, interview questions, and the trickiest parts of the code explained |
+| [docs/DEMO_CREDENTIALS.md](docs/DEMO_CREDENTIALS.md) | Sample accounts for trying the app locally                                                                      |
 
 ---
 
