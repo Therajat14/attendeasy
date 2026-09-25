@@ -2,17 +2,19 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Attendance from "../models/Attendance.model.js";
 
-const ATTENDANCE_DURATION_MINUTES = 30;
+// How long a session stays open after a teacher starts it.
+const SESSION_DURATION_MINUTES = 30;
 
-function getFrontendUrl() {
-  return process.env.FRONTEND_URL || "http://localhost:5173";
-}
+const STUDENT_FIELDS = "name email rollNo role";
 
+// Builds the link a student opens to mark attendance.
 function buildFormUrl(token) {
-  return `${getFrontendUrl().replace(/\/$/, "")}/form/${token}`;
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  return `${frontendUrl.replace(/\/$/, "")}/form/${token}`;
 }
 
-function normalizeSessionPayload(body) {
+// Reads the four fields we need out of the request body, trimmed.
+function readSessionInput(body) {
   return {
     lectureName: typeof body.lectureName === "string" ? body.lectureName.trim() : "",
     course: typeof body.course === "string" ? body.course.trim() : "",
@@ -21,50 +23,22 @@ function normalizeSessionPayload(body) {
   };
 }
 
-function isStudentInAttendanceGroup(student, attendance) {
+// Students can only mark a session that matches their course, year and section.
+function isSameClass(student, session) {
   return (
-    student.course === attendance.course &&
-    student.class === attendance.class &&
-    student.section === attendance.section
+    student.course === session.course &&
+    student.class === session.class &&
+    student.section === session.section
   );
 }
 
-function serializeAttendance(attendance) {
-  return {
-    id: attendance._id,
-    teacher: attendance.teacherId?.name
-      ? {
-          id: attendance.teacherId._id,
-          name: attendance.teacherId.name,
-          email: attendance.teacherId.email,
-        }
-      : undefined,
-    lectureName: attendance.lectureName,
-    course: attendance.course,
-    class: attendance.class,
-    section: attendance.section,
-    date: attendance.date,
-    formToken: attendance.formToken,
-    formUrl: buildFormUrl(attendance.formToken),
-    expiresAt: attendance.expiresAt,
-    isActive: attendance.isActive,
-    students: attendance.students
-      .map((student) => ({
-        studentId: student.studentId?._id || student.studentId,
-        name: student.studentId?.name || "Unknown student",
-        email: student.studentId?.email || "",
-        rollNo: student.studentId?.rollNo || null,
-        submittedAt: student.submittedAt,
-      }))
-      .sort(
-        (a, b) =>
-          (a.rollNo ?? Number.MAX_SAFE_INTEGER) - (b.rollNo ?? Number.MAX_SAFE_INTEGER),
-      ),
-    studentCount: attendance.students.length,
-  };
-}
+// Marks finished sessions as closed.
+//
+// A session has an end time, and we check it whenever the data is read instead
+// of running a background job every minute to close them.
+async function closeExpiredSessions(teacherId) {
+  const filter = teacherId ? { teacherId } : {};
 
-async function expireOldSessions(filter = {}) {
   await Attendance.updateMany(
     {
       ...filter,
@@ -75,6 +49,51 @@ async function expireOldSessions(filter = {}) {
   );
 }
 
+// The teacher shown on a session card. Left out when the session has no teacher.
+function serializeTeacher(teacher) {
+  if (!teacher?.name) return undefined;
+
+  return { id: teacher._id, name: teacher.name, email: teacher.email };
+}
+
+// Students sort by roll number, and anyone without one goes to the end.
+function byRollNumber(a, b) {
+  const rollA = a.rollNo ?? Number.MAX_SAFE_INTEGER;
+  const rollB = b.rollNo ?? Number.MAX_SAFE_INTEGER;
+
+  return rollA - rollB;
+}
+
+// Turns a session from the database into the JSON the frontend receives.
+function serializeAttendance(attendance) {
+  const students = attendance.students
+    .map((entry) => ({
+      studentId: entry.studentId?._id || entry.studentId,
+      name: entry.studentId?.name || "Unknown student",
+      email: entry.studentId?.email || "",
+      rollNo: entry.studentId?.rollNo || null,
+      submittedAt: entry.submittedAt,
+    }))
+    .sort(byRollNumber);
+
+  return {
+    id: attendance._id,
+    teacher: serializeTeacher(attendance.teacherId),
+    lectureName: attendance.lectureName,
+    course: attendance.course,
+    class: attendance.class,
+    section: attendance.section,
+    date: attendance.date,
+    formToken: attendance.formToken,
+    formUrl: buildFormUrl(attendance.formToken),
+    expiresAt: attendance.expiresAt,
+    isActive: attendance.isActive,
+    students,
+    studentCount: attendance.students.length,
+  };
+}
+
+// START A SESSION
 export const startAttendanceSession = async (req, res) => {
   if (req.user.role !== "teacher") {
     return res
@@ -82,39 +101,39 @@ export const startAttendanceSession = async (req, res) => {
       .json({ message: "Only teachers can start attendance sessions" });
   }
 
-  const session = normalizeSessionPayload(req.body);
-  if (!session.lectureName || !session.course || !session.class || !session.section) {
+  const input = readSessionInput(req.body);
+
+  if (!input.lectureName || !input.course || !input.class || !input.section) {
     return res
       .status(400)
       .json({ message: "lectureName, course, class, and section are required" });
   }
 
-  await expireOldSessions({ teacherId: req.user._id });
+  await closeExpiredSessions(req.user._id);
 
-  const existingActiveSession = await Attendance.findOne({
+  const openSession = await Attendance.findOne({
     teacherId: req.user._id,
     isActive: true,
     expiresAt: { $gt: new Date() },
   });
 
-  if (existingActiveSession) {
-    await existingActiveSession.populate(
-      "students.studentId",
-      "name email rollNo role",
-    );
+  // A teacher can only run one session at a time, so we hand back the
+  // session that is already open instead of creating a second one.
+  if (openSession) {
+    await openSession.populate("students.studentId", STUDENT_FIELDS);
 
     return res.status(409).json({
       message: "You already have an active attendance session",
-      session: serializeAttendance(existingActiveSession),
+      session: serializeAttendance(openSession),
     });
   }
 
   const formToken = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + ATTENDANCE_DURATION_MINUTES * 60 * 1000);
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MINUTES * 60 * 1000);
 
   const attendance = await Attendance.create({
     teacherId: req.user._id,
-    ...session,
+    ...input,
     formToken,
     expiresAt,
     isActive: true,
@@ -128,14 +147,15 @@ export const startAttendanceSession = async (req, res) => {
   });
 };
 
+// MARK ATTENDANCE (student taps once on the shared link)
 export const markAttendance = async (req, res) => {
   if (req.user.role !== "student") {
     return res.status(403).json({ message: "Only students can mark attendance" });
   }
 
   const { token } = req.params;
-
   const attendance = await Attendance.findOne({ formToken: token });
+
   if (!attendance) {
     return res.status(404).json({ message: "Attendance session not found" });
   }
@@ -150,13 +170,18 @@ export const markAttendance = async (req, res) => {
     return res.status(400).json({ message: "Attendance session is not active" });
   }
 
-  if (!isStudentInAttendanceGroup(req.user, attendance)) {
+  if (!isSameClass(req.user, attendance)) {
     return res.status(403).json({
       message: "This attendance session is not for your course, class, or section",
     });
   }
 
-  const updatedAttendance = await Attendance.findOneAndUpdate(
+  // One database call does two jobs at once:
+  // 1. it matches the session only if the student is not on the list yet
+  //    (the $not / $elemMatch part), so two taps cannot create two entries
+  //    even if they arrive at the same moment
+  // 2. it adds the student to the list and returns the updated session
+  const updated = await Attendance.findOneAndUpdate(
     {
       _id: attendance._id,
       course: req.user.course,
@@ -165,33 +190,26 @@ export const markAttendance = async (req, res) => {
       isActive: true,
       expiresAt: { $gt: new Date() },
       students: {
-        $not: {
-          $elemMatch: {
-            studentId: req.user._id,
-          },
-        },
+        $not: { $elemMatch: { studentId: req.user._id } },
       },
     },
     {
       $push: {
-        students: {
-          studentId: req.user._id,
-          submittedAt: new Date(),
-        },
+        students: { studentId: req.user._id, submittedAt: new Date() },
       },
     },
     { new: true, runValidators: true },
   );
 
-  if (!updatedAttendance) {
+  // The update matched nothing, which means the student was already on the list.
+  if (!updated) {
     return res.status(409).json({ message: "Already marked" });
   }
 
-  return res.status(201).json({
-    message: "Attendance marked successfully",
-  });
+  return res.status(201).json({ message: "Attendance marked successfully" });
 };
 
+// EVERY SESSION A TEACHER HAS RUN
 export const getAttendanceSessions = async (req, res) => {
   if (req.user.role !== "teacher") {
     return res
@@ -199,15 +217,16 @@ export const getAttendanceSessions = async (req, res) => {
       .json({ message: "Only teachers can view attendance sessions" });
   }
 
-  await expireOldSessions({ teacherId: req.user._id });
+  await closeExpiredSessions(req.user._id);
 
   const sessions = await Attendance.find({ teacherId: req.user._id })
-    .populate("students.studentId", "name email rollNo role")
+    .populate("students.studentId", STUDENT_FIELDS)
     .sort({ date: -1 });
 
   return res.json(sessions.map(serializeAttendance));
 };
 
+// ONE SESSION, WITH ITS ROSTER
 export const getAttendanceSessionById = async (req, res) => {
   if (req.user.role !== "teacher") {
     return res
@@ -222,7 +241,7 @@ export const getAttendanceSessionById = async (req, res) => {
   const session = await Attendance.findOne({
     _id: req.params.id,
     teacherId: req.user._id,
-  }).populate("students.studentId", "name email rollNo role");
+  }).populate("students.studentId", STUDENT_FIELDS);
 
   if (!session) {
     return res.status(404).json({ message: "Attendance session not found" });
@@ -236,6 +255,7 @@ export const getAttendanceSessionById = async (req, res) => {
   return res.json(serializeAttendance(session));
 };
 
+// SESSIONS ON ONE DAY, USED BY THE CALENDAR
 export const getAttendanceSessionsByDate = async (req, res) => {
   if (req.user.role !== "teacher") {
     return res
@@ -249,27 +269,26 @@ export const getAttendanceSessionsByDate = async (req, res) => {
     return res.status(400).json({ message: "Invalid date. Use YYYY-MM-DD format." });
   }
 
+  // Everything from midnight today up to midnight tomorrow.
   const startOfDay = new Date(requestedDate);
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date(startOfDay);
   endOfDay.setDate(endOfDay.getDate() + 1);
 
-  await expireOldSessions({ teacherId: req.user._id });
+  await closeExpiredSessions(req.user._id);
 
   const sessions = await Attendance.find({
     teacherId: req.user._id,
-    date: {
-      $gte: startOfDay,
-      $lt: endOfDay,
-    },
+    date: { $gte: startOfDay, $lt: endOfDay },
   })
-    .populate("students.studentId", "name email rollNo role")
+    .populate("students.studentId", STUDENT_FIELDS)
     .sort({ date: -1 });
 
   return res.json(sessions.map(serializeAttendance));
 };
 
+// CLOSE A SESSION EARLY
 export const endAttendanceSession = async (req, res) => {
   if (req.user.role !== "teacher") {
     return res
@@ -282,10 +301,7 @@ export const endAttendanceSession = async (req, res) => {
   }
 
   const session = await Attendance.findOneAndUpdate(
-    {
-      _id: req.params.id,
-      teacherId: req.user._id,
-    },
+    { _id: req.params.id, teacherId: req.user._id },
     { $set: { isActive: false } },
     { new: true },
   );
@@ -294,7 +310,7 @@ export const endAttendanceSession = async (req, res) => {
     return res.status(404).json({ message: "Attendance session not found" });
   }
 
-  await session.populate("students.studentId", "name email rollNo role");
+  await session.populate("students.studentId", STUDENT_FIELDS);
 
   return res.json({
     message: "Attendance session ended successfully",
@@ -302,6 +318,7 @@ export const endAttendanceSession = async (req, res) => {
   });
 };
 
+// LIVE SESSIONS A STUDENT CAN MARK RIGHT NOW
 export const getLiveAttendanceForStudent = async (req, res) => {
   if (req.user.role !== "student") {
     return res.status(403).json({ message: "Only students can view live attendance" });
@@ -313,7 +330,7 @@ export const getLiveAttendanceForStudent = async (req, res) => {
       .json({ message: "Student course, class, and section are required" });
   }
 
-  await expireOldSessions();
+  await closeExpiredSessions();
 
   const sessions = await Attendance.find({
     isActive: true,
@@ -328,13 +345,15 @@ export const getLiveAttendanceForStudent = async (req, res) => {
   return res.json(
     sessions.map((session) => ({
       ...serializeAttendance(session),
+      // Tells the frontend to show "Mark present" or "You're marked".
       hasMarked: session.students.some(
-        (student) => student.studentId.toString() === req.user._id.toString(),
+        (entry) => entry.studentId.toString() === req.user._id.toString(),
       ),
     })),
   );
 };
 
+// EVERY SESSION THIS STUDENT HAS ATTENDED
 export const getStudentAttendanceHistory = async (req, res) => {
   if (req.user.role !== "student") {
     return res
@@ -342,7 +361,7 @@ export const getStudentAttendanceHistory = async (req, res) => {
       .json({ message: "Only students can view attendance history" });
   }
 
-  await expireOldSessions();
+  await closeExpiredSessions();
 
   const sessions = await Attendance.find({
     "students.studentId": req.user._id,

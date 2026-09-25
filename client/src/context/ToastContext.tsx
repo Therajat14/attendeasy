@@ -1,26 +1,27 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 type ToastTone = "success" | "error" | "info";
 
-interface Toast {
-  id: number;
+// What a page passes to notify(). The tone is optional because notify()
+// fills in the default.
+interface ToastInput {
   title: string;
   description?: string;
+  tone?: ToastTone;
+}
+
+// A toast as we keep it in state. The id is added by the provider, and the
+// tone is always set by the time a toast is stored.
+interface Toast extends ToastInput {
+  id: number;
   tone: ToastTone;
 }
 
 interface ToastContextValue {
-  notify: (toast: { title: string; description?: string; tone?: ToastTone }) => void;
+  notify: (toast: ToastInput) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -42,27 +43,25 @@ const toneStyles: Record<ToastTone, { icon: ReactNode; ring: string }> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const counter = useRef(0);
+  const nextId = useRef(1);
 
-  const dismiss = useCallback((id: number) => {
+  const dismiss = (id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
+  };
 
-  const notify = useCallback<ToastContextValue["notify"]>(
-    ({ title, description, tone = "info" }) => {
-      counter.current += 1;
-      const id = counter.current;
+  const notify = ({ title, description, tone = "info" }: ToastInput) => {
+    const id = nextId.current;
+    nextId.current += 1;
 
-      setToasts((current) => [...current.slice(-2), { id, title, description, tone }]);
-      window.setTimeout(() => dismiss(id), 4800);
-    },
-    [dismiss],
-  );
+    // slice(-2) keeps only the two newest toasts, so the corner never fills up.
+    setToasts((current) => [...current.slice(-2), { id, title, description, tone }]);
 
-  const value = useMemo(() => ({ notify }), [notify]);
+    // Each toast removes itself after a few seconds.
+    window.setTimeout(() => dismiss(id), 4800);
+  };
 
   return (
-    <ToastContext.Provider value={value}>
+    <ToastContext.Provider value={{ notify }}>
       {children}
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-100 flex flex-col items-center gap-2.5 p-4 sm:inset-x-auto sm:right-0 sm:bottom-0 sm:items-end sm:p-6">

@@ -13,17 +13,19 @@ export default function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return <FullPageLoader label="Checking your access" />;
   }
 
-  if (!isAuthenticated) {
+  // No user means the cookie is missing or expired, so send them to login.
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && (!user || !allowedRoles.includes(user.role))) {
+  // Signed in, but this page belongs to a different role.
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

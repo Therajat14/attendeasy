@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   BellRing,
@@ -33,8 +33,16 @@ export default function StudentDashboard() {
   const { notify } = useToast();
   const isStudent = user?.role === "student";
 
-  const { live, history, loading, refreshing, error, setError, refresh } =
-    useStudentAttendance(isStudent);
+  const {
+    live,
+    history,
+    loading,
+    refreshing,
+    error,
+    setError,
+    refresh,
+    refreshSilently,
+  } = useStudentAttendance(isStudent);
   const [now, setNow] = useState(Date.now());
   const [markingToken, setMarkingToken] = useState<string | null>(null);
 
@@ -43,13 +51,14 @@ export default function StudentDashboard() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const thisMonthCount = useMemo(() => {
-    const monthStart = new Date(now);
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+  // Lectures attended since the first day of this month.
+  const monthStart = new Date(now);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
 
-    return history.filter((session) => new Date(session.date) >= monthStart).length;
-  }, [history, now]);
+  const thisMonthCount = history.filter(
+    (session) => new Date(session.date) >= monthStart,
+  ).length;
 
   const pending = live.filter((session) => !session.hasMarked);
   const firstName = getShortName(user?.name);
@@ -79,7 +88,7 @@ export default function StudentDashboard() {
       }
     } finally {
       setMarkingToken(null);
-      await refresh(false);
+      await refreshSilently();
     }
   };
 
@@ -112,7 +121,7 @@ export default function StudentDashboard() {
             size="sm"
             loading={refreshing}
             loadingLabel="Checking"
-            onClick={() => void refresh(true)}
+            onClick={() => void refresh()}
           >
             Check again
           </Button>

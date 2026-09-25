@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
   AlertCircle,
   Award,
@@ -20,6 +19,7 @@ import { useStudentAttendance } from "../hooks/useStudentAttendance";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatTime, groupByDate } from "../lib/format";
 import { LOW_ATTENDANCE_THRESHOLD } from "../lib/constants";
+import type { AttendanceSession } from "../types/attendance";
 
 export default function StudentHistory() {
   const { user } = useAuth();
@@ -27,33 +27,39 @@ export default function StudentHistory() {
 
   const { history, loading, error, setError } = useStudentAttendance(isStudent);
 
-  const bySubject = useMemo(() => {
-    const map = new Map<string, { subject: string; teacher: string; count: number }>();
+  // Count how many lectures the student attended in each subject.
+  // The Map keeps one entry per subject name, and we add to its count.
+  const bySubject = new Map<
+    string,
+    { subject: string; teacher: string; count: number }
+  >();
 
-    for (const session of history) {
-      const current = map.get(session.lectureName);
+  for (const session of history) {
+    const existing = bySubject.get(session.lectureName);
 
-      if (current) {
-        current.count += 1;
-        continue;
-      }
-
-      map.set(session.lectureName, {
-        subject: session.lectureName,
-        teacher: session.teacher?.name ?? "Faculty",
-        count: 1,
-      });
+    if (existing) {
+      existing.count += 1;
+      continue;
     }
 
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [history]);
+    bySubject.set(session.lectureName, {
+      subject: session.lectureName,
+      teacher: session.teacher?.name ?? "Faculty",
+      count: 1,
+    });
+  }
 
-  const firstMarked = history[history.length - 1];
+  // Most attended subject first.
+  const subjects = Array.from(bySubject.values()).sort((a, b) => b.count - a.count);
+
+  // The server sends history newest first, so index 0 is the latest and the
+  // last item is the very first lecture the student attended.
   const latest = history[0];
+  const firstMarked = history[history.length - 1];
 
-  const markedAt = (session: (typeof history)[number]) => {
-    const studentId = user?.id || user?._id;
-    const entry = session.students?.find((student) => student.studentId === studentId);
+  // Each session carries the exact time the student marked it.
+  const markedAt = (session: AttendanceSession) => {
+    const entry = session.students.find((student) => student.studentId === user?.id);
     return entry?.submittedAt ?? session.date;
   };
 
@@ -130,7 +136,7 @@ export default function StudentHistory() {
         />
         <StatCard
           label="Subjects"
-          value={bySubject.length}
+          value={subjects.length}
           hint="Across your course"
           icon={<ScrollText className="size-4" />}
           tone="brand"
@@ -216,12 +222,12 @@ export default function StudentHistory() {
             />
 
             <div className="mt-5 space-y-4">
-              {bySubject.length === 0 ? (
+              {subjects.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-ink-200 px-4 py-6 text-center text-[12.5px] text-ink-500 dark:border-ink-700 dark:text-ink-400">
                   Subject-wise records will appear as you attend lectures.
                 </p>
               ) : (
-                bySubject.map((subject) => {
+                subjects.map((subject) => {
                   const share = Math.round((subject.count / history.length) * 100);
                   const tone = attendanceTone(share);
 
@@ -248,7 +254,7 @@ export default function StudentHistory() {
             </div>
           </Card>
 
-          {bySubject.length > 0 && (
+          {subjects.length > 0 && (
             <Card>
               <CardHeader
                 title="Good to know"
@@ -256,7 +262,7 @@ export default function StudentHistory() {
               />
 
               <div className="mt-4 space-y-3 text-[13px] leading-relaxed text-ink-600 dark:text-ink-300">
-                {bySubject.some(
+                {subjects.some(
                   (subject) => subject.count < LOW_ATTENDANCE_THRESHOLD,
                 ) ? (
                   <p>

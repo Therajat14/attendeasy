@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CalendarDays, Search, Users, X } from "lucide-react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import PageHeader from "../components/common/PageHeader";
@@ -17,41 +17,31 @@ export default function TeacherSessions() {
   const { user } = useAuth();
   const isTeacher = user?.role === "teacher";
 
-  const { sessions, loading, refreshing, error, setError, refresh } = useSessions({
-    enabled: isTeacher,
-  });
+  const { sessions, loading, refreshing, error, setError, refresh } =
+    useSessions(isTeacher);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+  // Search box: keep sessions where any of these words contains what was typed.
+  const needle = query.trim().toLowerCase();
+  const filtered = needle
+    ? sessions.filter((session) =>
+        [session.lectureName, session.course, session.class, session.section]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle),
+      )
+    : sessions;
 
-    if (!needle) return sessions;
+  // The session shown in the roster panel: the one clicked, or the first result.
+  const selectedSession =
+    sessions.find((session) => session.id === selectedId) ?? filtered[0] ?? null;
 
-    return sessions.filter((session) =>
-      [session.lectureName, session.course, session.class, session.section]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle),
-    );
-  }, [sessions, query]);
+  const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
+  const average = sessions.length ? Math.round(totalMarks / sessions.length) : 0;
 
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === selectedId) ?? filtered[0] ?? null,
-    [sessions, selectedId, filtered],
-  );
-
-  const totals = useMemo(() => {
-    const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
-
-    return {
-      sessions: sessions.length,
-      marks: totalMarks,
-      average: sessions.length ? Math.round(totalMarks / sessions.length) : 0,
-    };
-  }, [sessions]);
-
-  const grouped = useMemo(() => groupByDate(filtered), [filtered]);
+  // Sessions grouped under Today / Yesterday / a date.
+  const grouped = groupByDate(filtered);
 
   return (
     <DashboardLayout contextLabel="Attendance sessions">
@@ -65,7 +55,7 @@ export default function TeacherSessions() {
             size="sm"
             loading={refreshing}
             loadingLabel="Refreshing"
-            onClick={() => void refresh(true)}
+            onClick={() => void refresh()}
           >
             Refresh
           </Button>
@@ -81,19 +71,19 @@ export default function TeacherSessions() {
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Total sessions"
-          value={totals.sessions}
+          value={sessions.length}
           icon={<CalendarDays className="size-4" />}
           tone="brand"
         />
         <StatCard
           label="Total marks"
-          value={totals.marks}
+          value={totalMarks}
           icon={<Users className="size-4" />}
           tone="success"
         />
         <StatCard
           label="Average per session"
-          value={totals.average}
+          value={average}
           icon={<CalendarDays className="size-4" />}
         />
       </div>

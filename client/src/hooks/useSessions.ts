@@ -1,63 +1,55 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../services/api";
 import { getErrorMessage } from "../lib/errors";
 import type { AttendanceSession } from "../types/attendance";
 
-const REFRESH_INTERVAL_MS = 10000;
+// How often we re-check the server so a live roster updates by itself.
+const POLL_INTERVAL_MS = 10000;
 
-interface UseSessionsOptions {
-  enabled: boolean;
-  poll?: boolean;
-}
-
-export function useSessions({ enabled, poll = true }: UseSessionsOptions) {
+/**
+ * Loads a teacher's attendance sessions and keeps them up to date.
+ *
+ * `isEnabled` is false for students, who are not allowed to see this list.
+ */
+export function useSessions(isEnabled: boolean) {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const isFirstLoad = useRef(true);
 
-  const fetchSessions = useCallback(
-    async (showSpinner = true) => {
-      if (!enabled) return;
+  // useCallback is used here for one reason only: it keeps this function's
+  // identity stable, so the polling effect below does not tear down and
+  // recreate its timer on every render.
+  const load = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setRefreshing(true);
 
-      if (showSpinner && isFirstLoad.current) {
-        setLoading(true);
-      } else if (showSpinner) {
-        setRefreshing(true);
-      }
+    try {
+      const response = await api.get<AttendanceSession[]>("/attendance");
+      setSessions(response.data);
+      setError("");
+    } catch (err) {
+      setError(getErrorMessage(err, "We couldn't load your sessions."));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-      try {
-        const response = await api.get<AttendanceSession[]>("/attendance");
-        setSessions(response.data);
-        setError("");
-      } catch (err) {
-        setError(getErrorMessage(err, "We couldn't load your sessions."));
-      } finally {
-        isFirstLoad.current = false;
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [enabled],
-  );
-
+  // Load once when the page opens, then poll quietly in the background.
   useEffect(() => {
-    if (!enabled) {
+    if (!isEnabled) {
       setLoading(false);
       return;
     }
 
-    void fetchSessions(true);
+    load(false);
 
-    if (!poll) return;
+    const timer = window.setInterval(() => {
+      load(false);
+    }, POLL_INTERVAL_MS);
 
-    const interval = window.setInterval(() => {
-      void fetchSessions(false);
-    }, REFRESH_INTERVAL_MS);
-
-    return () => window.clearInterval(interval);
-  }, [enabled, poll, fetchSessions]);
+    return () => window.clearInterval(timer);
+  }, [isEnabled, load]);
 
   return {
     sessions,
@@ -66,6 +58,9 @@ export function useSessions({ enabled, poll = true }: UseSessionsOptions) {
     refreshing,
     error,
     setError,
-    refresh: fetchSessions,
+    // Used by the "Refresh" button, so it shows a spinner.
+    refresh: () => load(true),
+    // Used after an action already gave feedback, so it stays quiet.
+    refreshSilently: () => load(false),
   };
 }

@@ -1,4 +1,4 @@
-import { getInitials } from "../../lib/errors";
+import { getInitials } from "../../lib/format";
 
 const palette = [
   "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-200",

@@ -1,16 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { AxiosError } from "axios";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { api, getStoredToken, setAuthToken, setStoredToken } from "../services/api";
+import { api } from "../services/api";
 import { getErrorMessage } from "../lib/errors";
 import type { User } from "../types/user";
 
-interface LoginPayload {
+export interface LoginInput {
   email: string;
   password: string;
 }
 
-interface RegisterPayload {
+export interface RegisterInput {
   name: string;
   email: string;
   password: string;
@@ -21,139 +20,79 @@ interface RegisterPayload {
   section?: string;
 }
 
-interface AuthResponse {
-  token: string;
-  user: User;
-}
-
-interface AuthContextType {
+interface AuthContextValue {
   user: User | null;
-  loading: boolean;
-  isAuthenticated: boolean;
-  login: (credentials: LoginPayload) => Promise<void>;
-  register: (details: RegisterPayload) => Promise<void>;
-  logout: () => void;
+  isLoading: boolean;
+  login: (input: LoginInput) => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function normalizeUser(raw: Partial<User> & { _id?: string; id?: string }): User {
-  return {
-    id: raw.id || raw._id || "",
-    _id: raw._id,
-    name: raw.name || "",
-    email: raw.email || "",
-    role: (raw.role as User["role"]) || "student",
-    rollNo: raw.rollNo,
-    course: raw.course,
-    class: raw.class,
-    section: raw.section,
-  };
-}
-
-function extractApiError(error: unknown): string {
-  return getErrorMessage(error, "We couldn't complete that request. Please try again.");
-}
-
-export function useAuth(): AuthContextType {
+export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuth must be used inside AuthProvider");
   }
+
   return context;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(() => Boolean(getStoredToken()));
+  const [isLoading, setIsLoading] = useState(true);
 
+  // When the app opens we ask the backend "who am I?".
+  // If the cookie is still valid the backend sends the user back.
   useEffect(() => {
-    const token = getStoredToken();
-    setAuthToken(token);
-
-    if (!token) {
-      return;
-    }
-
-    api
-      .get<User>("/auth/me")
-      .then((response) => {
-        setUser(normalizeUser(response.data));
-      })
-      .catch(() => {
-        setStoredToken(null);
-        setAuthToken(null);
+    const checkIfLoggedIn = async () => {
+      try {
+        const response = await api.get<User>("/auth/me");
+        setUser(response.data);
+      } catch {
+        // No valid cookie, so nobody is signed in.
         setUser(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      (response) => response,
-      (error: AxiosError<{ message?: string }>) => {
-        if (error.response?.status === 401) {
-          setStoredToken(null);
-          setAuthToken(null);
-          setUser(null);
-        }
-
-        return Promise.reject(error);
-      },
-    );
-
-    return () => {
-      api.interceptors.response.eject(interceptor);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
+    checkIfLoggedIn();
   }, []);
 
-  const login = async (credentials: LoginPayload) => {
+  const login = async (input: LoginInput) => {
     try {
-      const response = await api.post<AuthResponse>("/auth/login", credentials);
-      const token = response.data.token;
-      const nextUser = normalizeUser(response.data.user);
-
-      setStoredToken(token);
-      setAuthToken(token);
-      setUser(nextUser);
+      const response = await api.post<{ user: User }>("/auth/login", input);
+      setUser(response.data.user);
     } catch (error) {
-      throw new Error(extractApiError(error));
+      throw new Error(getErrorMessage(error, "We couldn't sign you in."));
     }
   };
 
-  const register = async (details: RegisterPayload) => {
+  const register = async (input: RegisterInput) => {
     try {
-      const response = await api.post<AuthResponse>("/auth/register", details);
-      const token = response.data.token;
-      const nextUser = normalizeUser(response.data.user);
-
-      setStoredToken(token);
-      setAuthToken(token);
-      setUser(nextUser);
+      const response = await api.post<{ user: User }>("/auth/register", input);
+      setUser(response.data.user);
     } catch (error) {
-      throw new Error(extractApiError(error));
+      throw new Error(getErrorMessage(error, "We couldn't create your account."));
     }
   };
 
-  const logout = () => {
-    setStoredToken(null);
-    setAuthToken(null);
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Even if the server call fails we still sign the user out locally.
+    }
+
     setUser(null);
   };
 
-  const value = useMemo(
-    () => ({
-      user,
-      loading,
-      isAuthenticated: Boolean(user),
-      login,
-      register,
-      logout,
-    }),
-    [user, loading],
+  return (
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

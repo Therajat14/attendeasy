@@ -1,28 +1,7 @@
 import type { AxiosError } from "axios";
 
-export function getErrorMessage(
-  error: unknown,
-  fallback = "Something went wrong",
-): string {
-  const axiosError = error as AxiosError<{ message?: string }>;
-  const raw = axiosError?.response?.data?.message;
-
-  if (typeof raw !== "string" || !raw.trim()) {
-    if (axiosError?.response?.status === 429) {
-      return "Too many attempts in a row. Please wait a moment and try again.";
-    }
-    if (
-      axiosError?.code === "ECONNABORTED" ||
-      axiosError?.message === "Network Error"
-    ) {
-      return "We could not reach AttendEasy. Please check your connection and try again.";
-    }
-    return fallback;
-  }
-
-  return humanizeApiMessage(raw);
-}
-
+// The API sends messages like "Invalid credentials". This list turns those
+// technical messages into messages that make sense to a student or teacher.
 const FRIENDLY_RULES: Array<[RegExp, string]> = [
   [/lectureName|course|class|section/i, "Please fill in every field to continue."],
   [/invalid credential/i, "That email and password combination doesn't look right."],
@@ -67,19 +46,39 @@ const FRIENDLY_RULES: Array<[RegExp, string]> = [
   ],
 ];
 
-function humanizeApiMessage(raw: string): string {
-  const trimmed = raw.trim();
+function makeMessageFriendly(serverMessage: string): string {
+  const trimmed = serverMessage.trim();
   const match = FRIENDLY_RULES.find(([pattern]) => pattern.test(trimmed));
+
   return match ? match[1] : trimmed;
 }
 
-export function getInitials(name?: string): string {
-  if (!name) return "?";
+// Every page that calls the API catches errors with this function so the user
+// sees one clear sentence instead of a raw server or network message.
+export function getErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong",
+): string {
+  const apiError = error as AxiosError<{ message?: string }>;
+  const serverMessage = apiError?.response?.data?.message;
 
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+  if (typeof serverMessage === "string" && serverMessage.trim()) {
+    return makeMessageFriendly(serverMessage);
+  }
+
+  if (apiError?.response?.status === 429) {
+    return "Too many attempts in a row. Please wait a moment and try again.";
+  }
+
+  if (apiError?.code === "ECONNABORTED" || apiError?.message === "Network Error") {
+    return "We could not reach AttendEasy. Please check your connection and try again.";
+  }
+
+  // Errors we created ourselves (for example inside AuthContext) do not come
+  // from the API, but their message is already safe to show.
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
 }

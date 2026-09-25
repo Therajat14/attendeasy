@@ -21,18 +21,22 @@ import { getErrorMessage } from "../lib/errors";
 
 export default function StudentForm() {
   const { token } = useParams();
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, isLoading } = useAuth();
   const { notify } = useToast();
 
   const [error, setError] = useState("");
   const [marked, setMarked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  if (loading) return null;
+  if (isLoading) return null;
 
-  if (!isAuthenticated) {
+  // Students reach this page from the QR link, so they have to be signed in.
+  // We remember the link so login can send them straight back here.
+  if (!user) {
     return <Navigate to="/login" replace state={{ from: `/form/${token}` }} />;
   }
+
+  const isStudent = user.role === "student";
 
   const markPresent = async () => {
     setError("");
@@ -46,9 +50,11 @@ export default function StudentForm() {
         description: "Your teacher can see you on the list.",
         tone: "success",
       });
-    } catch (err) {
-      const message = getErrorMessage(err, "We couldn't record your attendance.");
+    } catch (markError) {
+      const message = getErrorMessage(markError, "We couldn't record your attendance.");
 
+      // The server says "Already marked" if the student taps twice, so we
+      // show the success screen instead of an error.
       if (message.toLowerCase().includes("already")) {
         setMarked(true);
         notify({
@@ -100,10 +106,10 @@ export default function StudentForm() {
             <p className="mt-2 text-[13.5px] leading-relaxed text-ink-500 dark:text-ink-400">
               {marked
                 ? "Your attendance for this lecture has been recorded. You can close this page."
-                : `You're signed in as ${user?.name}. One tap records your presence for this lecture.`}
+                : `You're signed in as ${user.name}. One tap records your presence for this lecture.`}
             </p>
 
-            {user?.course && (
+            {user.course && (
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 <Badge tone="neutral">
                   {user.course} · {user.class} · Section {user.section}
@@ -113,7 +119,7 @@ export default function StudentForm() {
             )}
 
             <div className="mt-6 space-y-3 text-left">
-              {user?.role !== "student" && (
+              {!isStudent && (
                 <Alert tone="warning" icon={<AlertCircle className="size-4" />}>
                   Only student accounts can mark attendance. Ask your teacher for help.
                 </Alert>
@@ -136,8 +142,8 @@ export default function StudentForm() {
                 size="lg"
                 loading={submitting}
                 loadingLabel="Recording"
-                disabled={marked || user?.role !== "student"}
-                onClick={() => void markPresent()}
+                disabled={marked || !isStudent}
+                onClick={markPresent}
                 leadingIcon={
                   !submitting && !marked ? (
                     <CheckCircle2 className="size-4" />
@@ -176,7 +182,9 @@ export default function StudentForm() {
               title="Marking attendance for someone else?"
               description="Attendance can only be recorded from your own account. This helps keep records fair for everyone."
               action={
-                <ButtonLink to="/student/dashboard" variant="secondary" size="sm" />
+                <ButtonLink to="/student/dashboard" variant="secondary" size="sm">
+                  Go to my dashboard
+                </ButtonLink>
               }
             />
           </div>

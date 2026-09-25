@@ -11,6 +11,8 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const PORT = process.env.PORT || 5000;
 
+// We only start accepting requests once the database is reachable, so the API
+// never answers a request it cannot finish.
 connectToDatabase()
   .then(() => {
     app.listen(PORT, () => {
@@ -18,5 +20,5 @@ connectToDatabase()
     });
   })
   .catch((error) => {
-    console.log("Error connecting to MongoDB", error.message);
+    console.error("Could not connect to MongoDB:", error.message);
   });

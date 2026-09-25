@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AlertCircle,
@@ -39,10 +39,16 @@ export default function TeacherDashboard() {
   const { notify } = useToast();
   const isTeacher = user?.role === "teacher";
 
-  const { sessions, setSessions, loading, refreshing, error, setError, refresh } =
-    useSessions({
-      enabled: isTeacher,
-    });
+  const {
+    sessions,
+    setSessions,
+    loading,
+    refreshing,
+    error,
+    setError,
+    refresh,
+    refreshSilently,
+  } = useSessions(isTeacher);
 
   const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState(emptyForm);
@@ -58,30 +64,23 @@ export default function TeacherDashboard() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const activeSession = useMemo(
-    () =>
-      sessions.find(
-        (session) => session.isActive && new Date(session.expiresAt).getTime() > now,
-      ),
-    [sessions, now],
+  // The one session that is open right now.
+  const activeSession = sessions.find(
+    (session) => session.isActive && new Date(session.expiresAt).getTime() > now,
   );
 
-  const recentSessions = useMemo(
-    () => sessions.filter((session) => session.id !== activeSession?.id).slice(0, 4),
-    [sessions, activeSession?.id],
-  );
+  // The four newest finished sessions, shown under the live card.
+  const recentSessions = sessions
+    .filter((session) => session.id !== activeSession?.id)
+    .slice(0, 4);
 
-  const totals = useMemo(() => {
-    const totalSessions = sessions.length;
-    const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
-    const todaySessions = sessions.filter(
-      (session) =>
-        new Date(session.date).toDateString() === new Date(now).toDateString(),
-    );
-    const average = totalSessions ? Math.round(totalMarks / totalSessions) : 0;
-
-    return { totalSessions, todaySessions: todaySessions.length, average };
-  }, [sessions, now]);
+  // Three small numbers for the cards at the top of the page.
+  const totalSessions = sessions.length;
+  const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
+  const todaySessions = sessions.filter(
+    (session) => new Date(session.date).toDateString() === new Date(now).toDateString(),
+  ).length;
+  const average = totalSessions ? Math.round(totalMarks / totalSessions) : 0;
 
   const remaining = activeSession
     ? getRemainingTime(activeSession.expiresAt, now)
@@ -127,7 +126,7 @@ export default function TeacherDashboard() {
           description: message,
           tone: "error",
         });
-        void refresh(false);
+        void refreshSilently();
       } else {
         setError(message);
       }
@@ -136,37 +135,34 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleEnd = useCallback(
-    async (sessionId: string) => {
-      setEnding(true);
+  const handleEnd = async (sessionId: string) => {
+    setEnding(true);
 
-      try {
-        const response = await api.patch<{ session: AttendanceSession }>(
-          `/attendance/${sessionId}/end`,
-        );
-        setSessions((current) =>
-          current.map((session) =>
-            session.id === sessionId ? response.data.session : session,
-          ),
-        );
+    try {
+      const response = await api.patch<{ session: AttendanceSession }>(
+        `/attendance/${sessionId}/end`,
+      );
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === sessionId ? response.data.session : session,
+        ),
+      );
 
-        notify({
-          title: "Session closed",
-          description: "The attendance link is no longer active.",
-          tone: "info",
-        });
-      } catch (err) {
-        notify({
-          title: "Couldn't close the session",
-          description: getErrorMessage(err),
-          tone: "error",
-        });
-      } finally {
-        setEnding(false);
-      }
-    },
-    [setSessions, notify],
-  );
+      notify({
+        title: "Session closed",
+        description: "The attendance link is no longer active.",
+        tone: "info",
+      });
+    } catch (err) {
+      notify({
+        title: "Couldn't close the session",
+        description: getErrorMessage(err),
+        tone: "error",
+      });
+    } finally {
+      setEnding(false);
+    }
+  };
 
   const handleCopy = async (formUrl: string) => {
     try {
@@ -216,7 +212,7 @@ export default function TeacherDashboard() {
             size="sm"
             loading={refreshing}
             loadingLabel="Refreshing"
-            onClick={() => void refresh(true)}
+            onClick={() => void refresh()}
           >
             Refresh
           </Button>
@@ -248,14 +244,14 @@ export default function TeacherDashboard() {
         />
         <StatCard
           label="Sessions today"
-          value={totals.todaySessions}
-          hint={`${totals.totalSessions} in total`}
+          value={todaySessions}
+          hint={`${totalSessions} in total`}
           icon={<CalendarPlus className="size-4" />}
           tone="brand"
         />
         <StatCard
           label="Average per session"
-          value={totals.average}
+          value={average}
           hint="Students marked per lecture"
           icon={<Users className="size-4" />}
         />

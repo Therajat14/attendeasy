@@ -13,11 +13,6 @@ export function formatTime(value: string | Date): string {
   });
 }
 
-export function formatDateTime(value: string | Date): string {
-  const date = new Date(value);
-  return `${formatDate(date)} · ${formatTime(date)}`;
-}
-
 export function formatDayLabel(value: string | Date): string {
   const date = new Date(value);
   const today = new Date();
@@ -114,20 +109,21 @@ export function getShortName(name?: string): string {
   return (withoutTitle[0] || parts[0] || "there").replace(/[,]$/, "");
 }
 
+// "Aarav Sharma" becomes "AS". Used for the round avatar icons.
+export function getInitials(name?: string): string {
+  if (!name) return "?";
+
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export function toTitleCase(value: string): string {
   return value
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
-}
-
-export function classLabel(
-  course?: string,
-  studentClass?: string,
-  section?: string,
-): string {
-  if (!course && !studentClass && !section) return "All classes";
-  return [course, studentClass, section ? `Section ${section}` : ""]
-    .filter(Boolean)
-    .join(" · ");
 }

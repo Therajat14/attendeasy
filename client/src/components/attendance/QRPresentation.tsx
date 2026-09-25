@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,10 +11,11 @@ interface QRPresentationProps {
   isUrgent?: boolean;
 }
 
+// Pick a QR size that fits the screen the teacher is projecting on.
 function getStageSize() {
-  const longestEdge =
-    Math.max(window.screen?.width || 0, window.screen?.height || 0) ||
-    Math.max(window.innerWidth, window.innerHeight);
+  const screenWidth = window.screen?.width || window.innerWidth;
+  const screenHeight = window.screen?.height || window.innerHeight;
+  const longestEdge = Math.max(screenWidth, screenHeight);
 
   return Math.max(220, Math.min(900, Math.round(longestEdge * 0.72)));
 }
@@ -31,39 +32,40 @@ export default function QRPresentation({
   const [stageSize, setStageSize] = useState(480);
   const stageRef = useRef<HTMLDivElement>(null);
 
-  const open = useCallback(async () => {
-    setIsOpen(true);
+  const open = () => {
     setStageSize(getStageSize());
-  }, []);
+    setIsOpen(true);
+  };
 
-  const close = useCallback(async () => {
+  // Close the panel and step out of full screen if we are in it.
+  const close = () => {
     if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        /* browser refused to leave fullscreen, close the overlay anyway */
-      }
+      document.exitFullscreen().catch(() => {
+        // The browser refused to leave full screen, but we still close the panel.
+      });
     }
+
     setIsOpen(false);
-  }, []);
+  };
 
-  const toggleFullscreen = useCallback(async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else if (stageRef.current) {
-        await stageRef.current.requestFullscreen();
-      }
-    } catch {
-      /* fullscreen blocked, the overlay still works as a fixed panel */
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return;
     }
-  }, []);
 
+    // The browser can refuse full screen (for example on iPhone). The panel
+    // still works as a full-window overlay, so we ignore the failure.
+    stageRef.current?.requestFullscreen().catch(() => {});
+  };
+
+  // Keep the full screen button in sync, and re-measure when the window changes.
   useEffect(() => {
     const onChange = () => {
-      const active = Boolean(document.fullscreenElement);
-      setIsFullscreen(active);
-      if (!active) setStageSize(getStageSize());
+      const isNowFullscreen = Boolean(document.fullscreenElement);
+      setIsFullscreen(isNowFullscreen);
+
+      if (!isNowFullscreen) setStageSize(getStageSize());
     };
 
     document.addEventListener("fullscreenchange", onChange);
@@ -75,18 +77,20 @@ export default function QRPresentation({
     };
   }, []);
 
+  // Escape closes the panel.
   useEffect(() => {
     if (!isOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") void close();
+      if (event.key === "Escape") close();
     };
 
     document.addEventListener("keydown", onKeyDown);
 
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, close]);
+  }, [isOpen]);
 
+  // While the panel is open the page behind it must not scroll.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -102,7 +106,7 @@ export default function QRPresentation({
     <>
       <button
         type="button"
-        onClick={() => void open()}
+        onClick={open}
         className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-700 transition hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800"
       >
         <Maximize2 className="size-3.5" />
@@ -166,7 +170,7 @@ export default function QRPresentation({
             <div className="absolute top-4 right-4 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => void toggleFullscreen()}
+                onClick={toggleFullscreen}
                 aria-label={isFullscreen ? "Exit full screen" : "Go full screen"}
                 className="inline-flex size-10 items-center justify-center rounded-xl border border-ink-200 bg-white/90 text-ink-600 backdrop-blur transition hover:bg-ink-50"
               >
@@ -179,7 +183,7 @@ export default function QRPresentation({
 
               <button
                 type="button"
-                onClick={() => void close()}
+                onClick={close}
                 aria-label="Close screen view"
                 className="inline-flex size-10 items-center justify-center rounded-xl border border-ink-200 bg-white/90 text-ink-600 backdrop-blur transition hover:bg-ink-50"
               >

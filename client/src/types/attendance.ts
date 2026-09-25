@@ -29,13 +29,6 @@ export interface AttendanceSession {
   hasMarked?: boolean;
 }
 
-export interface StartSessionPayload {
-  lectureName: string;
-  course: string;
-  class: string;
-  section: string;
-}
-
 export interface StartSessionResponse {
   message: string;
   formUrl: string;

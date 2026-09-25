@@ -1,31 +1,35 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
+import { AUTH_COOKIE_NAME } from "../utils/authCookie.util.js";
 
+// Runs before any protected route.
+//
+// 1. Reads the token from the cookie.
+// 2. Checks the token is genuine and not expired.
+// 3. Loads the user from the database so the controller can use req.user.
+// 4. Lets the request continue, or replies with 401.
 export const protect = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+  const token = req.cookies[AUTH_COOKIE_NAME];
 
   if (!token) {
     return res.status(401).json({ message: "Not authorized" });
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select("-password");
-    if (!req.user) {
-      return res.status(401).json({ message: "User no longer exists" });
-    }
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
-  }
-};
+  let userId;
 
-// Role-based access
-export const restrictTo = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    next();
-  };
+  try {
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    userId = decodedToken.id;
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+
+  const user = await User.findById(userId).select("-password");
+
+  if (!user) {
+    return res.status(401).json({ message: "User no longer exists" });
+  }
+
+  req.user = user;
+  next();
 };
