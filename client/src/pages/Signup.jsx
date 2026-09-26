@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertCircle, GraduationCap, Mail, UserRound } from "lucide-react";
+import { AlertCircle, Check, GraduationCap, Mail, UserRound } from "lucide-react";
 import AuthLayout from "../layouts/AuthLayout";
 import Alert from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { SelectField, TextField } from "../components/ui/Field";
 import PasswordField from "../components/ui/PasswordField";
+import Progress from "../components/ui/Progress";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../lib/errors";
@@ -31,6 +32,20 @@ const initialForm = {
   section: "",
 };
 
+// Registration runs as steps so only a few fields are on screen at a time and
+// the page never has to scroll. Teachers skip the last step because they have
+// no student details to fill.
+function buildSteps(isStudent) {
+  const steps = [
+    { key: "role", title: "Role" },
+    { key: "account", title: "Account" },
+  ];
+
+  if (isStudent) steps.push({ key: "student", title: "Student details" });
+
+  return steps;
+}
+
 export default function Signup() {
   const { register } = useAuth();
   const { notify } = useToast();
@@ -42,19 +57,26 @@ export default function Signup() {
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Which step we are on, counting from 0.
+  const [step, setStep] = useState(0);
 
   const isStudent = form.role === "student";
+  const steps = buildSteps(isStudent);
+  const isLastStep = step === steps.length - 1;
 
-  // Checks every field and returns true only when nothing was wrong.
-  const validate = () => {
+  // Checks only the fields that belong to one step and returns the problems it
+  // found. An empty object means the step is fine and we can move on.
+  const validateStep = (key) => {
     const next = {};
 
-    if (form.name.trim().length < 2) next.name = "Please enter your full name.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email))
-      next.email = "Enter a valid email address.";
-    if (form.password.length < 6) next.password = "Use at least 6 characters.";
+    if (key === "account") {
+      if (form.name.trim().length < 2) next.name = "Please enter your full name.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email))
+        next.email = "Enter a valid email address.";
+      if (form.password.length < 6) next.password = "Use at least 6 characters.";
+    }
 
-    if (isStudent) {
+    if (key === "student") {
       const rollNo = Number(form.rollNo);
       if (!Number.isInteger(rollNo) || rollNo < 1)
         next.rollNo = "Enter a valid roll number.";
@@ -63,15 +85,42 @@ export default function Signup() {
       if (!form.section) next.section = "Select your section.";
     }
 
+    return next;
+  };
+
+  // Checks every step, so nothing wrong can slip through on the last one.
+  const validateAll = () => {
+    const next = {};
+    for (const { key } of steps) Object.assign(next, validateStep(key));
     setErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  // Moves to the next step, but only when the current one is filled correctly.
+  const goNext = () => {
+    const next = validateStep(steps[step].key);
+    setErrors(next);
+
+    if (Object.keys(next).length > 0) return;
+
+    setStep((current) => Math.min(current + 1, steps.length - 1));
+  };
+
+  const goBack = () => {
+    setErrors({});
+    setStep((current) => Math.max(current - 1, 0));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
 
-    if (!validate()) return;
+    if (!isLastStep) {
+      goNext();
+      return;
+    }
+
+    if (!validateAll()) return;
 
     setSubmitting(true);
 
@@ -106,9 +155,12 @@ export default function Signup() {
     }
   };
 
+  // Picking a role changes how many steps there are, so we always go back to
+  // the first step where the role is chosen.
   const selectRole = (role) => {
     setForm((current) => ({ ...current, role }));
     setErrors({});
+    setStep(0);
   };
 
   return (
@@ -129,95 +181,147 @@ export default function Signup() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {error && (
           <Alert tone="danger" icon={<AlertCircle className="size-4" />}>
             {error}
           </Alert>
         )}
 
-        <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-ink-800 dark:text-ink-200">
-            I am joining as
-          </legend>
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-[12.5px] font-semibold text-ink-600 dark:text-ink-300">
+              Step {step + 1} of {steps.length}
+            </p>
+            <p className="text-[12.5px] text-ink-500 dark:text-ink-400">
+              {steps[step].title}
+            </p>
+          </div>
 
-          <div className="grid gap-2">
-            {ROLE_OPTIONS.map((option) => {
-              const selected = form.role === option.value;
+          <Progress className="mt-2" value={(step / (steps.length - 1)) * 100} />
+
+          <ol className="mt-3 flex items-center gap-2">
+            {steps.map((item, index) => {
+              const done = index < step;
+              const current = index === step;
 
               return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => selectRole(option.value)}
-                  aria-pressed={selected}
-                  className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
-                    selected
-                      ? "border-brand-500 bg-brand-50/70 ring-4 ring-brand-500/10 dark:bg-brand-500/10"
-                      : "border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:hover:border-ink-600 dark:hover:bg-ink-800"
-                  }`}
-                >
+                <li key={item.key} className="flex flex-1 items-center gap-2">
                   <span
-                    className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                      selected
-                        ? "border-brand-600"
-                        : "border-ink-300 dark:border-ink-600"
+                    aria-current={current ? "step" : undefined}
+                    className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition ${
+                      done
+                        ? "bg-brand-600 text-white"
+                        : current
+                          ? "bg-brand-50 text-brand-700 ring-2 ring-brand-500 dark:bg-brand-500/15 dark:text-brand-300"
+                          : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-400"
                     }`}
                   >
-                    {selected && (
-                      <span className="size-2.5 rounded-full bg-brand-600" />
-                    )}
+                    {done ? <Check className="size-3.5" /> : index + 1}
                   </span>
-
-                  <span className="min-w-0">
-                    <span className="block text-[13.5px] font-bold text-ink-900 dark:text-white">
-                      {option.label}
-                    </span>
-                    <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-500 dark:text-ink-400">
-                      {option.hint}
-                    </span>
+                  <span
+                    className={`hidden text-[12.5px] font-semibold sm:block ${
+                      current
+                        ? "text-ink-900 dark:text-white"
+                        : "text-ink-500 dark:text-ink-400"
+                    }`}
+                  >
+                    {item.title}
                   </span>
-                </button>
+                </li>
               );
             })}
-          </div>
-        </fieldset>
+          </ol>
+        </div>
 
-        <TextField
-          label="Full name"
-          autoComplete="name"
-          placeholder="Your full name"
-          leadingSlot={<UserRound className="size-4" />}
-          value={form.name}
-          error={errors.name}
-          onChange={(event) => setForm({ ...form, name: event.target.value })}
-          required
-        />
+        {steps[step].key === "role" && (
+          <fieldset>
+            <legend className="mb-2 text-[13px] font-semibold text-ink-800 dark:text-ink-200">
+              I am joining as
+            </legend>
 
-        <TextField
-          label="Email address"
-          type="email"
-          autoComplete="email"
-          placeholder="you@college.edu"
-          leadingSlot={<Mail className="size-4" />}
-          value={form.email}
-          error={errors.email}
-          onChange={(event) => setForm({ ...form, email: event.target.value })}
-          required
-        />
+            <div className="grid gap-2">
+              {ROLE_OPTIONS.map((option) => {
+                const selected = form.role === option.value;
 
-        <PasswordField
-          label="Password"
-          autoComplete="new-password"
-          placeholder="At least 6 characters"
-          hint="Use something you don't use elsewhere."
-          value={form.password}
-          error={errors.password}
-          onChange={(event) => setForm({ ...form, password: event.target.value })}
-          required
-        />
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => selectRole(option.value)}
+                    aria-pressed={selected}
+                    className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
+                      selected
+                        ? "border-brand-500 bg-brand-50/70 ring-4 ring-brand-500/10 dark:bg-brand-500/10"
+                        : "border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-800 dark:hover:border-ink-600 dark:hover:bg-ink-800"
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                        selected
+                          ? "border-brand-600"
+                          : "border-ink-300 dark:border-ink-600"
+                      }`}
+                    >
+                      {selected && (
+                        <span className="size-2.5 rounded-full bg-brand-600" />
+                      )}
+                    </span>
 
-        {isStudent && (
+                    <span className="min-w-0">
+                      <span className="block text-[13.5px] font-bold text-ink-900 dark:text-white">
+                        {option.label}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-500 dark:text-ink-400">
+                        {option.hint}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+
+        {steps[step].key === "account" && (
+          <>
+            <TextField
+              label="Full name"
+              autoComplete="name"
+              placeholder="Your full name"
+              leadingSlot={<UserRound className="size-4" />}
+              value={form.name}
+              error={errors.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              required
+            />
+
+            <TextField
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              placeholder="you@college.edu"
+              leadingSlot={<Mail className="size-4" />}
+              value={form.email}
+              error={errors.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              required
+            />
+
+            <PasswordField
+              label="Password"
+              autoComplete="new-password"
+              placeholder="At least 6 characters"
+              hint="Use something you don't use elsewhere."
+              value={form.password}
+              error={errors.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              required
+            />
+          </>
+        )}
+
+        {steps[step].key === "student" && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField
@@ -274,19 +378,28 @@ export default function Signup() {
           </>
         )}
 
-        <Button
-          type="submit"
-          size="lg"
-          fullWidth
-          loading={submitting}
-          loadingLabel="Creating your account"
-        >
-          Create account
-        </Button>
+        <div className="flex gap-3">
+          {step > 0 && (
+            <Button type="button" variant="ghost" onClick={goBack}>
+              Back
+            </Button>
+          )}
 
-        <p className="text-center text-[12px] leading-relaxed text-ink-400">
-          By continuing you agree to use AttendEasy for your own attendance only.
-        </p>
+          <Button
+            type="submit"
+            className="flex-1"
+            loading={submitting}
+            loadingLabel="Creating your account"
+          >
+            {isLastStep ? "Create account" : "Continue"}
+          </Button>
+        </div>
+
+        {isLastStep && (
+          <p className="text-center text-[12px] leading-relaxed text-ink-400">
+            By continuing you agree to use AttendEasy for your own attendance only.
+          </p>
+        )}
       </form>
     </AuthLayout>
   );
