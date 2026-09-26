@@ -10,3 +10,10 @@ export async function connectToDatabase() {
   await mongoose.connect(connectionString);
   console.log("Connected to MongoDB");
 }
+
+// Closes the connection on a clean shutdown, so a worker never exits while
+// MongoDB still thinks it has an open client.
+export async function disconnectFromDatabase() {
+  await mongoose.connection.close();
+  console.log("Disconnected from MongoDB");
+}

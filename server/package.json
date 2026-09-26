@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "start:single": "WEB_CONCURRENCY=1 node src/server.js",
     "seed": "node src/seed/seed.js",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "start:cluster": "WEB_CONCURRENCY=auto NODE_ENV=production node src/server.js"
   },
   "author": "",
   "license": "ISC",
