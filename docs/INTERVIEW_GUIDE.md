@@ -24,7 +24,8 @@ Browser (React + JavaScript)
                                                                    │  HTTPS, cookies travel
                                                                    │  with the request
 ┌───────────────────────────────────────────────────────────────┐  │
-│  server.js      load .env, connect to Mongo, then listen       │◀─┘
+│  server.js      load .env, fork a worker per CPU,              │◀─┘
+│                 then each worker connects to Mongo and listens │
 │  app.js         cors, json, cookie parsing, mount the routes   │
 │                                                                   │
 │  routes/        which URL calls which function                   │
@@ -178,10 +179,14 @@ a stranger from guessing `formToken` values; it is not the only protection.
 
 `rateLimit.middleware.js` allows 5 marking requests per IP per minute, so one
 student cannot spam the endpoint. It is honest about its limits: the counters
-live in a JavaScript `Map` in memory (line 1), so a restart clears them and
-several server instances would each keep their own. Redis would be the fix in
-production, and it is deliberately not here because it would add a dependency
-and a second thing to run.
+live in a JavaScript `Map` in memory, so a restart clears them. Because each
+worker process keeps its own copy, the middleware divides the limit by
+`WORKER_COUNT` (the primary passes it to every worker it forks) so the quota
+stays roughly the same across the cluster instead of multiplying by the number
+of workers. That is an approximation, not a fix: with many workers each one can
+still allow at least one request, so the real ceiling rises. Redis, or a counter
+in MongoDB, would be exact and is deliberately not here because it would add a
+dependency and a second thing to run.
 
 ### "How do you know a route is protected?"
 
@@ -327,8 +332,10 @@ Saying this out loud in an interview is a strength, not a weakness.
    a few lines above (line 228) uses `share`, a real percentage, and is correct.
    It was left as-is because fixing it changes what users see, so it needs a
    decision rather than a quiet patch.
-2. **The rate limiter is per process and in memory.** A restart clears it, and
-   more than one server instance would each allow the full quota.
+2. **The rate limiter is per process and in memory.** A restart clears it. The
+   cluster divides the quota by the worker count to keep it roughly level, but
+   every worker can still allow at least one request, so many workers raise the
+   real ceiling. Only a shared counter makes it exact.
 3. **Subjects are plain text.** `lectureName`, `course`, `class` and `section`
    are strings, so "BCA" and "bca " are two different classes. Real
    normalisation would need a lookup table, which is a schema change.

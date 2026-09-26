@@ -17,7 +17,7 @@ Sample logins: [../docs/DEMO_CREDENTIALS.md](../docs/DEMO_CREDENTIALS.md)
 Every request moves through the same four files. Take `POST /api/attendance/start`:
 
 ```
-server.js        starts the app, once
+server.js        starts the app, and forks a worker per CPU in production
   └─ app.js      decides which route file handles the URL
        └─ routes/attendance.routes.js   "POST /start"  ->  which function
             └─ middlewares/auth.middleware.js        "is this person signed in?"
@@ -48,13 +48,13 @@ it touches.
 
 ## Files worth reading first
 
-| File                                 | Why                                             |
-| ------------------------------------ | ----------------------------------------------- |
-| `src/server.js`                      | The whole boot sequence, 22 lines               |
-| `src/app.js`                         | Every route the API has, on one screen          |
-| `src/routes/auth.routes.js`          | Smallest complete example of the four-file flow |
-| `src/controllers/auth.controller.js` | Register, login, logout, and who am I           |
-| `src/utils/authCookie.util.js`       | The one place cookie options are defined        |
+| File                                 | Why                                               |
+| ------------------------------------ | ------------------------------------------------- |
+| `src/server.js`                      | The boot sequence: env, cluster, database, listen |
+| `src/app.js`                         | Every route the API has, on one screen            |
+| `src/routes/auth.routes.js`          | Smallest complete example of the four-file flow   |
+| `src/controllers/auth.controller.js` | Register, login, logout, and who am I             |
+| `src/utils/authCookie.util.js`       | The one place cookie options are defined          |
 
 ## The API
 
