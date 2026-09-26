@@ -9,7 +9,7 @@ export default function FullPageLoader({ label = "Getting things ready" }) {
         animate={{ opacity: [0.55, 1, 0.55] }}
         transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Logo to="" size="lg" showWordmark={false} />
+        <Logo to="" size="lg" />
       </motion.div>
 
       <div className="flex items-center gap-2 text-ink-500 dark:text-ink-400">
