@@ -104,7 +104,7 @@ export default function TeacherSessions() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by subject or class"
               aria-label="Search sessions"
-              className="w-full min-w-0 rounded-xl border border-ink-200 bg-white py-2.5 pr-3.5 pl-10 text-sm shadow-soft transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 focus:outline-none dark:border-ink-700 dark:bg-ink-900 dark:focus:border-brand-400"
+              className="w-full min-w-0 rounded-xl border border-ink-200 bg-white py-2.5 pr-3.5 pl-10 text-sm shadow-soft transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 focus:outline-none dark:border-ink-700 dark:bg-ink-800 dark:focus:border-brand-400"
             />
             {query && (
               <button

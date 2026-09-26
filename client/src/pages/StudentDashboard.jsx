@@ -271,7 +271,7 @@ function LiveSessionCard({ session, now, marking, onMark }) {
       className={`relative overflow-hidden rounded-2xl border p-5 transition ${
         hasMarked
           ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
-          : "border-brand-200 bg-white shadow-elevated dark:border-brand-500/30 dark:bg-ink-900/70"
+          : "border-brand-200 bg-white shadow-elevated dark:border-brand-500/30 dark:bg-ink-900"
       }`}
     >
       {!hasMarked && (

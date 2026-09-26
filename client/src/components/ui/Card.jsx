@@ -1,7 +1,7 @@
 export function Card({ children, className = "", padded = true }) {
   return (
     <section
-      className={`min-w-0 rounded-2xl border border-ink-200/80 bg-white shadow-soft transition dark:border-ink-800 dark:bg-ink-900/70 dark:shadow-none ${padded ? "p-5 sm:p-6" : ""} ${className}`}
+      className={`min-w-0 rounded-2xl border border-ink-200/80 bg-white shadow-soft transition dark:border-ink-800 dark:bg-ink-900 dark:shadow-none ${padded ? "p-5 sm:p-6" : ""} ${className}`}
     >
       {children}
     </section>
@@ -45,7 +45,7 @@ const tones = {
 
 export function StatCard({ label, value, hint, icon, tone = "default" }) {
   return (
-    <div className="rounded-2xl border border-ink-200/80 bg-white p-4 shadow-soft sm:p-5 dark:border-ink-800 dark:bg-ink-900/70 dark:shadow-none">
+    <div className="rounded-2xl border border-ink-200/80 bg-white p-4 shadow-soft sm:p-5 dark:border-ink-800 dark:bg-ink-900 dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[12px] font-semibold tracking-wide text-ink-500 uppercase dark:text-ink-400">
           {label}

@@ -94,7 +94,7 @@ export default function AppSidebar({ onNavigate }) {
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-300 dark:hover:border-red-500/40 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300 dark:hover:border-red-500/40 dark:hover:bg-red-950/30 dark:hover:text-red-300"
         >
           <LogOut className="size-3.5" />
           Sign out

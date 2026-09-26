@@ -12,7 +12,7 @@ const variants = {
   primary:
     "bg-brand-600 text-white shadow-soft hover:bg-brand-700 hover:shadow-elevated dark:bg-brand-500 dark:hover:bg-brand-400",
   secondary:
-    "border border-ink-200 bg-white text-ink-800 shadow-soft hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:hover:bg-ink-800",
+    "border border-ink-200 bg-white text-ink-800 shadow-soft hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100 dark:hover:bg-ink-800",
   ghost:
     "text-ink-600 hover:bg-ink-100 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white",
   danger:

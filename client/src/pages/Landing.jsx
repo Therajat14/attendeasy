@@ -335,7 +335,7 @@ export default function Landing() {
               viewport={{ once: true, margin: "-80px" }}
               variants={reveal}
               custom={index * 0.08}
-              className="group relative rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-elevated dark:border-ink-800 dark:bg-ink-900/70"
+              className="group relative rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-elevated dark:border-ink-800 dark:bg-ink-900"
             >
               <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-600 group-hover:text-white dark:bg-brand-500/15 dark:text-brand-300">
                 <step.icon className="size-5" />
@@ -381,7 +381,7 @@ export default function Landing() {
                 viewport={{ once: true, margin: "-60px" }}
                 variants={reveal}
                 custom={index * 0.05}
-                className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft transition hover:shadow-elevated dark:border-ink-800 dark:bg-ink-900/70"
+                className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft transition hover:shadow-elevated dark:border-ink-800 dark:bg-ink-900"
               >
                 <span className="flex size-10 items-center justify-center rounded-xl bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
                   <feature.icon className="size-[18px]" />
@@ -408,7 +408,7 @@ export default function Landing() {
               viewport={{ once: true, margin: "-60px" }}
               variants={reveal}
               custom={index * 0.07}
-              className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900/70"
+              className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900"
             >
               <div className="flex items-center gap-3">
                 <span className="flex size-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">

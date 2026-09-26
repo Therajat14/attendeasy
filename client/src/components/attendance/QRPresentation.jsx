@@ -95,7 +95,7 @@ export default function QRPresentation({ value, title, subtitle, timeLeft, isUrg
       <button
         type="button"
         onClick={open}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-700 transition hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-700 transition hover:border-ink-300 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:bg-ink-800"
       >
         <Maximize2 className="size-3.5" />
         Show on screen

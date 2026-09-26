@@ -1,7 +1,7 @@
 import { useId } from "react";
 
 const control =
-  "w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-soft transition placeholder:text-ink-400 focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500 dark:disabled:bg-ink-800";
+  "w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-soft transition placeholder:text-ink-400 focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400 dark:bg-ink-800 dark:text-ink-100 dark:placeholder:text-ink-500 dark:disabled:bg-ink-900";
 
 const ok =
   "border-ink-200 hover:border-ink-300 focus:border-brand-500 focus:ring-brand-500/15 dark:border-ink-700 dark:hover:border-ink-600 dark:focus:border-brand-400";

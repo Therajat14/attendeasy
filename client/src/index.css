@@ -99,6 +99,25 @@
   }
 }
 
+/* Dark mode needs its own ink ramp. The light ramp runs dark-on-light, so the
+   same steps cannot also be light-on-dark and still pass contrast. Overriding
+   the variables here re-tints every `ink-*` utility in dark mode without
+   touching a single component. The steps read as surfaces, from page to
+   control: 950 page, 900 panel/card, 800 control fill, 700 control border. */
+.dark {
+  --color-ink-50: #f4f6f9;
+  --color-ink-100: #e7eaf0;
+  --color-ink-200: #d2d8e1;
+  --color-ink-300: #b0b8c6;
+  --color-ink-400: #8b95a7;
+  --color-ink-500: #6b7488;
+  --color-ink-600: #545d70;
+  --color-ink-700: #3f4859;
+  --color-ink-800: #2b3240;
+  --color-ink-900: #1c2230;
+  --color-ink-950: #0f131a;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
