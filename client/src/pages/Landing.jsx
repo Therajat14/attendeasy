@@ -459,15 +459,14 @@ export default function Landing() {
                 to="/signup"
                 size="lg"
                 trailingIcon={<ArrowRight className="size-4" />}
-                className="bg-white text-ink-950 hover:bg-ink-100 dark:bg-white dark:text-ink-950 dark:hover:bg-ink-100"
               >
                 Create free account
               </ButtonLink>
               <ButtonLink
                 to="/login"
-                variant="secondary"
+                variant="ghost"
                 size="lg"
-                className="border-ink-700 bg-transparent text-ink-100 hover:bg-ink-800"
+                className="border border-ink-700 text-white hover:bg-ink-800 hover:text-white dark:text-white"
               >
                 See a live session
               </ButtonLink>
