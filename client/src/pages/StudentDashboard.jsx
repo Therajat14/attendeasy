@@ -47,6 +47,8 @@ export default function StudentDashboard() {
   // only that one card shows a spinner.
   const [markingToken, setMarkingToken] = useState(null);
 
+  // A simple clock that ticks every second, so the countdown on each live card
+  // moves without needing a page reload.
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
@@ -57,13 +59,19 @@ export default function StudentDashboard() {
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const thisMonthCount = history.filter(
-    (session) => new Date(session.date) >= monthStart,
-  ).length;
+  let thisMonthCount = 0;
+  for (const session of history) {
+    if (new Date(session.date) >= monthStart) {
+      thisMonthCount += 1;
+    }
+  }
 
+  // The live lectures this student has not tapped yet, so they can be asked for
+  // the ones still waiting.
   const pending = live.filter((session) => !session.hasMarked);
   const firstName = getShortName(user?.name);
 
+  // Taps "Mark present" on one live card.
   const markPresent = async (session) => {
     setMarkingToken(session.formToken);
     setError("");
@@ -78,6 +86,8 @@ export default function StudentDashboard() {
     } catch (err) {
       const message = getErrorMessage(err, "We couldn't record your attendance.");
 
+      // Two taps at the same time both reach the server, but only one is
+      // accepted, so we explain that instead of showing an error.
       if (message.toLowerCase().includes("already")) {
         notify({
           title: "Already marked",
@@ -89,6 +99,8 @@ export default function StudentDashboard() {
       }
     } finally {
       setMarkingToken(null);
+
+      // Reload quietly, so the card switches to "You're marked" straight away.
       await refreshSilently();
     }
   };

@@ -22,23 +22,56 @@ export default function TeacherSessions() {
   const [selectedId, setSelectedId] = useState(null);
   const [query, setQuery] = useState("");
 
-  // Search box: keep sessions where any of these words contains what was typed.
+  // The search box keeps a session when the subject or any class detail
+  // contains what was typed. An empty box keeps everything.
   const needle = query.trim().toLowerCase();
-  const filtered = needle
-    ? sessions.filter((session) =>
-        [session.lectureName, session.course, session.class, session.section]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle),
-      )
-    : sessions;
+  const filtered = [];
 
-  // The session shown in the roster panel: the one clicked, or the first result.
-  const selectedSession =
-    sessions.find((session) => session.id === selectedId) ?? filtered[0] ?? null;
+  for (const session of sessions) {
+    if (needle === "") {
+      filtered.push(session);
+      continue;
+    }
 
-  const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
-  const average = sessions.length ? Math.round(totalMarks / sessions.length) : 0;
+    // Put all the searchable details into one piece of text, in lower case, so
+    // we only have to make one comparison.
+    const searchableText = [
+      session.lectureName,
+      session.course,
+      session.class,
+      session.section,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (searchableText.includes(needle)) {
+      filtered.push(session);
+    }
+  }
+
+  // The session shown in the roster panel: the one the teacher clicked, or the
+  // first result when they have not clicked anything yet.
+  let selectedSession = null;
+
+  if (selectedId) {
+    selectedSession = sessions.find((session) => session.id === selectedId) ?? null;
+  }
+
+  if (!selectedSession) {
+    selectedSession = filtered[0] ?? null;
+  }
+
+  // Add up how many students marked attendance across every session.
+  let totalMarks = 0;
+  for (const session of sessions) {
+    totalMarks += session.studentCount;
+  }
+
+  // The average number of students per session, rounded to a whole number.
+  let average = 0;
+  if (sessions.length > 0) {
+    average = Math.round(totalMarks / sessions.length);
+  }
 
   // Sessions grouped under Today / Yesterday / a date.
   const grouped = groupByDate(filtered);

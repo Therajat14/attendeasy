@@ -7,9 +7,19 @@ export const ATTENDANCE_TONES = {
   danger: "bg-red-500",
 };
 
+// Checks are made from the top down, so the first one that is true wins.
 export function attendanceTone(percentage) {
-  if (percentage >= 85) return "success";
-  if (percentage >= 75) return "brand";
-  if (percentage >= 65) return "warning";
+  if (percentage >= 85) {
+    return "success";
+  }
+
+  if (percentage >= 75) {
+    return "brand";
+  }
+
+  if (percentage >= 65) {
+    return "warning";
+  }
+
   return "danger";
 }

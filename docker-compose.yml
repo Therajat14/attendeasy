@@ -1,0 +1,55 @@
+# AttendEasy in one command.
+#
+#   docker compose up --build
+#
+# Then open http://localhost:8080 and sign in with any demo account, using the
+# password Attend@2026. The first start seeds MongoDB and prints the logins;
+# later starts reuse that database untouched.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Compose waits for this to pass before starting the app, so the API and
+      # the seeder both find a database that is ready to take connections.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/attendeasy
+      # Replace this before putting anything anywhere public. Compose reads
+      # .env next to this file, so putting the real value there keeps it out of
+      # version control.
+      JWT_SECRET: ${JWT_SECRET:-change-me-before-you-deploy-this}
+      # The frontend and the API are the same origin in this image, so `lax` is
+      # correct here. A split deployment (frontend and API on different hosts)
+      # needs "none", which in turn forces HTTPS.
+      COOKIE_SAME_SITE: lax
+      # Over plain HTTP — the default here, so `docker compose up` works on a
+      # laptop or over the LAN. Browsers drop `Secure` cookies on any plain
+      # HTTP origin except localhost, so set this to true once you put HTTPS in
+      # front of the container.
+      COOKIE_SECURE: "false"
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      AUTO_SEED: ${AUTO_SEED:-true}
+    ports:
+      - "${PORT:-8080}:5000"
+
+volumes:
+  mongo-data:

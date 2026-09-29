@@ -58,15 +58,19 @@ export default function TeacherDashboard() {
   const [ending, setEnding] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // A simple clock that ticks every second, so the countdown on the live card
+  // moves without needing a page reload.
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
 
   // The one session that is open right now.
-  const activeSession = sessions.find(
-    (session) => session.isActive && new Date(session.expiresAt).getTime() > now,
-  );
+  // A session can still say isActive after its 30 minutes are up, so we also
+  // check that the closing time has not passed yet.
+  const activeSession = sessions.find((session) => {
+    return session.isActive && new Date(session.expiresAt).getTime() > now;
+  });
 
   // The four newest finished sessions, shown under the live card.
   const recentSessions = sessions
@@ -75,12 +79,31 @@ export default function TeacherDashboard() {
 
   // Three small numbers for the cards at the top of the page.
   const totalSessions = sessions.length;
-  const totalMarks = sessions.reduce((sum, session) => sum + session.studentCount, 0);
-  const todaySessions = sessions.filter(
-    (session) => new Date(session.date).toDateString() === new Date(now).toDateString(),
-  ).length;
-  const average = totalSessions ? Math.round(totalMarks / totalSessions) : 0;
 
+  // Add up how many students marked attendance across every session.
+  let totalMarks = 0;
+  for (const session of sessions) {
+    totalMarks += session.studentCount;
+  }
+
+  // How many of those sessions happened today.
+  let todaySessions = 0;
+  for (const session of sessions) {
+    const sameDay =
+      new Date(session.date).toDateString() === new Date(now).toDateString();
+
+    if (sameDay) {
+      todaySessions += 1;
+    }
+  }
+
+  // The average number of students per session, rounded to a whole number.
+  let average = 0;
+  if (totalSessions > 0) {
+    average = Math.round(totalMarks / totalSessions);
+  }
+
+  // Only the live card shows a countdown, so this is null when nothing is open.
   const remaining = activeSession
     ? getRemainingTime(activeSession.expiresAt, now)
     : null;
@@ -89,24 +112,45 @@ export default function TeacherDashboard() {
     event.preventDefault();
     setError("");
 
+    // Check every field and collect the problems, so the teacher sees all of
+    // them at once instead of one at a time.
     const nextErrors = {};
-    if (form.lectureName.trim().length < 2)
+
+    if (form.lectureName.trim().length < 2) {
       nextErrors.lectureName = "Enter the subject or lecture name.";
-    if (!form.course) nextErrors.course = "Select a course.";
-    if (!form.class) nextErrors.class = "Select a year.";
-    if (!form.section) nextErrors.section = "Select a section.";
+    }
+
+    if (!form.course) {
+      nextErrors.course = "Select a course.";
+    }
+
+    if (!form.class) {
+      nextErrors.class = "Select a year.";
+    }
+
+    if (!form.section) {
+      nextErrors.section = "Select a section.";
+    }
 
     setFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+
+    // Something is missing, so do not send anything to the server.
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
 
     setStarting(true);
 
     try {
       const response = await api.post("/attendance/start", {
-        ...form,
         lectureName: form.lectureName.trim(),
+        course: form.course,
+        class: form.class,
+        section: form.section,
       });
 
+      // Put the new session at the top of the list, so the live card appears
+      // straight away without waiting for the next poll.
       setSessions((current) => [response.data.session, ...current]);
       setForm(emptyForm);
       setFormErrors({});
@@ -119,6 +163,9 @@ export default function TeacherDashboard() {
     } catch (err) {
       const message = getErrorMessage(err, "We couldn't start the session.");
 
+      // The backend only allows one live session per teacher, so this is worth
+      // pointing out separately. We also reload, so the card shows the session
+      // that is already running.
       if (message.toLowerCase().includes("already have a live")) {
         notify({
           title: "A session is already running",
@@ -139,11 +186,18 @@ export default function TeacherDashboard() {
 
     try {
       const response = await api.patch(`/attendance/${sessionId}/end`);
-      setSessions((current) =>
-        current.map((session) =>
-          session.id === sessionId ? response.data.session : session,
-        ),
-      );
+
+      // Swap out the session we just closed for the one the server sent back,
+      // and leave every other session exactly as it was.
+      setSessions((current) => {
+        return current.map((session) => {
+          if (session.id === sessionId) {
+            return response.data.session;
+          }
+
+          return session;
+        });
+      });
 
       notify({
         title: "Session closed",
@@ -164,14 +218,19 @@ export default function TeacherDashboard() {
   const handleCopy = async (formUrl) => {
     try {
       await navigator.clipboard.writeText(formUrl);
+
+      // Show the "Copied!" state for a moment, then go back to normal.
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2200);
+
       notify({
         title: "Link copied",
         description: "Paste it anywhere to share.",
         tone: "success",
       });
     } catch {
+      // The browser refused to copy, which usually means the page is not being
+      // served over HTTPS.
       notify({
         title: "Couldn't copy the link",
         description: "Select the link and copy it manually.",

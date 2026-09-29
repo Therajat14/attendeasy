@@ -1,53 +1,74 @@
-// Every worker process keeps its own copy of this Map, so without help a
-// client could send WORKER_COUNT * maxRequests before the cluster as a whole
-// blocked it. We divide the limit by the number of workers, which keeps the
-// limit across the whole cluster the same as the limit for a single process.
-// A shared store such as Redis would be exact, but this needs no dependency.
-// The primary passes the count to each worker; in a single process it is 1.
+// Stops one student from hammering the "mark attendance" button.
+//
+// How it works: every time a request comes in we look up the visitor's IP
+// address in `requestsSoFar`. The first request starts a one minute timer and
+// counts as 1. Once the count reaches the limit, every further request inside
+// that minute is refused with 429. When the minute is up the entry is treated as
+// new, so the student can try again.
+
+const REQUESTS_ALLOWED_PER_MINUTE = 5;
+const ONE_MINUTE_IN_MS = 60 * 1000;
+const REFUSAL_MESSAGE = "Too many form submissions. Please try again in a minute.";
+
+// The counts live in this process's memory, so a cluster would otherwise give
+// every worker its own copy and a visitor could get REQUESTS_ALLOWED per worker.
+// We divide the limit by the number of workers instead, which keeps the limit
+// for the whole cluster the same as the limit for a single process.
+// The primary process tells each worker how many there are; with one process it
+// is simply 1.
 const workerCount = Math.max(1, Number(process.env.WORKER_COUNT) || 1);
+const allowedPerWorker = Math.max(
+  1,
+  Math.ceil(REQUESTS_ALLOWED_PER_MINUTE / workerCount),
+);
 
-const rateLimitStore = new Map();
+// IP address -> { count, expiresAt }
+const requestsSoFar = new Map();
 
-export function createRateLimiter({
-  windowMs = 60 * 1000,
-  maxRequests = 10,
-  message = "Too many requests. Please try again later.",
-} = {}) {
-  const limitPerWorker = Math.max(1, Math.ceil(maxRequests / workerCount));
+export function formSubmissionRateLimiter(req, res, next) {
+  // Works out who is making the request.
+  let visitor = req.ip;
 
-  return (req, res, next) => {
-    const key = req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const now = Date.now();
-    const record = rateLimitStore.get(key);
+  if (!visitor) {
+    visitor = req.headers["x-forwarded-for"];
+  }
 
-    if (!record || record.expiresAt <= now) {
-      // Expired entries are only ever replaced when the same key comes back,
-      // so the Map would grow forever. Drop the old ones once it gets big.
-      if (rateLimitStore.size > 5000) {
-        for (const [oldKey, old] of rateLimitStore) {
-          if (old.expiresAt <= now) rateLimitStore.delete(oldKey);
+  if (!visitor) {
+    visitor = req.socket.remoteAddress;
+  }
+
+  const now = Date.now();
+  const record = requestsSoFar.get(visitor);
+
+  // No entry, or the entry belongs to a minute that has already passed. Either
+  // way we start a fresh minute for this visitor.
+  if (!record || record.expiresAt <= now) {
+    // Old entries are only removed when the same IP comes back, so this Map
+    // would grow forever. Once it gets big we drop every entry whose minute has
+    // finished.
+    if (requestsSoFar.size > 5000) {
+      for (const [oldVisitor, oldRecord] of requestsSoFar) {
+        if (oldRecord.expiresAt <= now) {
+          requestsSoFar.delete(oldVisitor);
         }
       }
-
-      rateLimitStore.set(key, {
-        count: 1,
-        expiresAt: now + windowMs,
-      });
-      return next();
     }
 
-    if (record.count >= limitPerWorker) {
-      return res.status(429).json({ message });
-    }
+    requestsSoFar.set(visitor, {
+      count: 1,
+      expiresAt: now + ONE_MINUTE_IN_MS,
+    });
 
-    record.count += 1;
-    rateLimitStore.set(key, record);
     return next();
-  };
-}
+  }
 
-export const formSubmissionRateLimiter = createRateLimiter({
-  windowMs: 60 * 1000,
-  maxRequests: 5,
-  message: "Too many form submissions. Please try again in a minute.",
-});
+  // The visitor is inside their minute and has already used up the allowance.
+  if (record.count >= allowedPerWorker) {
+    return res.status(429).json({ message: REFUSAL_MESSAGE });
+  }
+
+  record.count += 1;
+  requestsSoFar.set(visitor, record);
+
+  return next();
+}

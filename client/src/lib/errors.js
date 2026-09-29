@@ -47,24 +47,39 @@ const FRIENDLY_RULES = [
 
 function makeMessageFriendly(serverMessage) {
   const trimmed = serverMessage.trim();
-  const match = FRIENDLY_RULES.find(([pattern]) => pattern.test(trimmed));
 
-  return match ? match[1] : trimmed;
+  // The rules are in priority order, so the first pattern that matches the
+  // server's message is the one we use.
+  for (const [pattern, friendlyMessage] of FRIENDLY_RULES) {
+    if (pattern.test(trimmed)) {
+      return friendlyMessage;
+    }
+  }
+
+  // Nothing matched, so the server's own message is the best we have.
+  return trimmed;
 }
 
 // Every page that calls the API catches errors with this function so the user
 // sees one clear sentence instead of a raw server or network message.
+//
+// error is the object axios rejects with, so error.response holds the HTTP
+// response and error.response.data holds the JSON the server sent back.
 export function getErrorMessage(error, fallback = "Something went wrong") {
   const serverMessage = error?.response?.data?.message;
 
+  // The server explained what went wrong, so translate that into plain English.
   if (typeof serverMessage === "string" && serverMessage.trim()) {
     return makeMessageFriendly(serverMessage);
   }
 
+  // Rejected because of too many requests, with no explanation of which.
   if (error?.response?.status === 429) {
     return "Too many attempts in a row. Please wait a moment and try again.";
   }
 
+  // Never reached the server at all: no internet, wrong address, or a request
+  // that timed out. axios reports both of these in its own way.
   if (error?.code === "ECONNABORTED" || error?.message === "Network Error") {
     return "We could not reach AttendEasy. Please check your connection and try again.";
   }

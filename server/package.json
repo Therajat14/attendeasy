@@ -9,6 +9,7 @@
     "start": "node src/server.js",
     "start:single": "WEB_CONCURRENCY=1 node src/server.js",
     "seed": "node src/seed/seed.js",
+    "seed:if-empty": "node src/seed/seed.js --if-empty",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start:cluster": "WEB_CONCURRENCY=auto NODE_ENV=production node src/server.js"

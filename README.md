@@ -122,6 +122,46 @@ Sample logins for the seeded data are listed in
 
 ---
 
+## 🐳 Running with Docker
+
+The whole project in one command — no local installs, and the sample data is
+loaded for you on the first start:
+
+```bash
+docker compose up --build
+```
+
+Then open <http://localhost:8080> and sign in with any demo account using the
+password `Attend@2026`, for example
+`ananya.iyer@college.edu` (teacher) or `aarav.patel@college.edu` (student).
+The first boot prints every demo login to the logs:
+
+```bash
+docker compose logs app | grep -A20 "DEMO LOGIN"
+```
+
+The seed only ever writes to a database with no users in it, so restarts and
+rebuilds leave your data alone. Stop everything with `docker compose down`, or
+`docker compose down -v` to throw the database away as well.
+
+The image builds the frontend and then serves it from the same Express process
+that runs the API, which means the browser only ever talks to one origin and
+there is no CORS or cross-site cookie involved.
+
+| Variable        | Default                 | What it changes                                                     |
+| --------------- | ----------------------- | ------------------------------------------------------------------- |
+| `PORT`          | `8080`                  | Host port the app is reached on                                     |
+| `JWT_SECRET`    | a placeholder           | **Change this.** Signs the login cookie                             |
+| `FRONTEND_URL`  | `http://localhost:8080` | Used to build the attendance links                                  |
+| `AUTO_SEED`     | `true`                  | Set to `false` to start with an empty database                      |
+| `COOKIE_SECURE` | `false`                 | Set to `true` once HTTPS is in front of the container               |
+
+Put those in a `.env` file next to `docker-compose.yml` to keep them out of
+version control. `JWT_SECRET` matters: anyone who knows it can mint a login
+cookie for any account.
+
+---
+
 ## 🧩 Current Status
 
 - ✅ Product interface complete (marketing site, sign in, teacher & student workspaces)

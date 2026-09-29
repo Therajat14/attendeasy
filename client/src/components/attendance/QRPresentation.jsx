@@ -53,7 +53,10 @@ export default function QRPresentation({ value, title, subtitle, timeLeft, isUrg
       const isNowFullscreen = Boolean(document.fullscreenElement);
       setIsFullscreen(isNowFullscreen);
 
-      if (!isNowFullscreen) setStageSize(getStageSize());
+      // Back in a normal window, so the QR code has to be sized for it again.
+      if (!isNowFullscreen) {
+        setStageSize(getStageSize());
+      }
     };
 
     document.addEventListener("fullscreenchange", onChange);
@@ -67,10 +70,14 @@ export default function QRPresentation({ value, title, subtitle, timeLeft, isUrg
 
   // Escape closes the panel.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     const onKeyDown = (event) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape") {
+        close();
+      }
     };
 
     document.addEventListener("keydown", onKeyDown);
@@ -80,8 +87,11 @@ export default function QRPresentation({ value, title, subtitle, timeLeft, isUrg
 
   // While the panel is open the page behind it must not scroll.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
+    // Remember the setting we are replacing, so putting it back is exact.
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 

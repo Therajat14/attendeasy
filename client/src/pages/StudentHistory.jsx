@@ -20,6 +20,37 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, formatTime, groupByDate } from "../lib/format";
 import { LOW_ATTENDANCE_THRESHOLD } from "../lib/constants";
 
+// The top line of the downloaded file.
+const CSV_HEADER = [
+  "Date",
+  "Subject",
+  "Course",
+  "Class",
+  "Section",
+  "Teacher",
+  "Marked at",
+];
+
+// Prepares one value for a CSV file.
+// Every value is wrapped in quotes, and a quote inside a value is written twice.
+// That is the escaping rule spreadsheets expect, and it means a value with a
+// comma or a quote inside it cannot break the columns.
+function escapeCsvValue(value) {
+  const valueWithDoubledQuotes = String(value).replace(/"/g, '""');
+  return `"${valueWithDoubledQuotes}"`;
+}
+
+// Turns one row of values into one line of the file.
+function makeCsvLine(cells) {
+  const escapedCells = [];
+
+  for (const cell of cells) {
+    escapedCells.push(escapeCsvValue(cell));
+  }
+
+  return escapedCells.join(",");
+}
+
 export default function StudentHistory() {
   const { user } = useAuth();
   const isStudent = user?.role === "student";
@@ -34,11 +65,13 @@ export default function StudentHistory() {
   for (const session of history) {
     const existing = bySubject.get(session.lectureName);
 
+    // We have seen this subject before, so this is one more lecture of it.
     if (existing) {
       existing.count += 1;
       continue;
     }
 
+    // First time we have seen this subject, so start its count at one.
     bySubject.set(session.lectureName, {
       subject: session.lectureName,
       teacher: session.teacher?.name ?? "Faculty",
@@ -54,36 +87,32 @@ export default function StudentHistory() {
   const latest = history[0];
   const firstMarked = history[history.length - 1];
 
-  // Each session carries the exact time the student marked it.
+  // Each session carries the exact time this student marked it, which is not
+  // always the same as the time the session started.
   const markedAt = (session) => {
     const entry = session.students.find((student) => student.studentId === user?.id);
     return entry?.submittedAt ?? session.date;
   };
 
+  // Builds the file and hands it to the browser, which starts the download.
   const exportCsv = () => {
-    const header = [
-      "Date",
-      "Subject",
-      "Course",
-      "Class",
-      "Section",
-      "Teacher",
-      "Marked at",
-    ];
-    const rows = history.map((session) => [
-      formatDate(session.date),
-      session.lectureName,
-      session.course,
-      session.class,
-      session.section,
-      session.teacher?.name ?? "Faculty",
-      formatTime(markedAt(session)),
-    ]);
+    const lines = [makeCsvLine(CSV_HEADER)];
 
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-      .join("\n");
+    for (const session of history) {
+      lines.push(
+        makeCsvLine([
+          formatDate(session.date),
+          session.lectureName,
+          session.course,
+          session.class,
+          session.section,
+          session.teacher?.name ?? "Faculty",
+          formatTime(markedAt(session)),
+        ]),
+      );
+    }
 
+    const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -91,6 +120,8 @@ export default function StudentHistory() {
     link.href = url;
     link.download = "attendeasy-my-attendance.csv";
     link.click();
+
+    // Frees the temporary file now the download has started.
     URL.revokeObjectURL(url);
   };
 

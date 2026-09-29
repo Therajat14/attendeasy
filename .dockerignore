@@ -1,0 +1,20 @@
+# Everything that would bloat the build context or leak into the image.
+# The Dockerfile copies only client/package*.json, client/, server/ and nothing
+# from .git, so anything listed here never reaches a layer.
+
+.git
+.gitignore
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+npm-debug.log*
+**/.DS_Store
+.vscode
+docs
+README.md
+Dockerfile
+docker-compose.yml
+.dockerignore

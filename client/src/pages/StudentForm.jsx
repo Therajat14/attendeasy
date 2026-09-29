@@ -28,7 +28,12 @@ export default function StudentForm() {
   const [marked, setMarked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  if (isLoading) return null;
+  // While we are still asking the server who the visitor is, we show nothing,
+  // so the page does not flash the "please sign in" message at someone who is
+  // about to be recognised.
+  if (isLoading) {
+    return null;
+  }
 
   // Students reach this page from the QR link, so they have to be signed in.
   // We remember the link so login can send them straight back here.

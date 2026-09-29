@@ -69,20 +69,41 @@ export default function Signup() {
   const validateStep = (key) => {
     const next = {};
 
+    // Step 2: the details every account needs.
     if (key === "account") {
-      if (form.name.trim().length < 2) next.name = "Please enter your full name.";
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email))
+      if (form.name.trim().length < 2) {
+        next.name = "Please enter your full name.";
+      }
+
+      // A rough email check: something, then @, then a domain with a dot in it.
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) {
         next.email = "Enter a valid email address.";
-      if (form.password.length < 6) next.password = "Use at least 6 characters.";
+      }
+
+      if (form.password.length < 6) {
+        next.password = "Use at least 6 characters.";
+      }
     }
 
+    // Step 3: the class details only a student has.
     if (key === "student") {
       const rollNo = Number(form.rollNo);
-      if (!Number.isInteger(rollNo) || rollNo < 1)
+
+      if (!Number.isInteger(rollNo) || rollNo < 1) {
         next.rollNo = "Enter a valid roll number.";
-      if (!form.course) next.course = "Select your course.";
-      if (!form.class) next.class = "Select your year.";
-      if (!form.section) next.section = "Select your section.";
+      }
+
+      if (!form.course) {
+        next.course = "Select your course.";
+      }
+
+      if (!form.class) {
+        next.class = "Select your year.";
+      }
+
+      if (!form.section) {
+        next.section = "Select your section.";
+      }
     }
 
     return next;
@@ -91,7 +112,13 @@ export default function Signup() {
   // Checks every step, so nothing wrong can slip through on the last one.
   const validateAll = () => {
     const next = {};
-    for (const { key } of steps) Object.assign(next, validateStep(key));
+
+    for (const { key } of steps) {
+      // Each step checks its own fields, so we copy its problems into the one
+      // object we hand back.
+      Object.assign(next, validateStep(key));
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -101,7 +128,9 @@ export default function Signup() {
     const next = validateStep(steps[step].key);
     setErrors(next);
 
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0) {
+      return;
+    }
 
     setStep((current) => Math.min(current + 1, steps.length - 1));
   };
@@ -115,30 +144,37 @@ export default function Signup() {
     event.preventDefault();
     setError("");
 
+    // Any step that is not the last one behaves like a "Next" button.
     if (!isLastStep) {
       goNext();
       return;
     }
 
-    if (!validateAll()) return;
+    // Something is wrong, so do not send anything to the server.
+    if (!validateAll()) {
+      return;
+    }
 
     setSubmitting(true);
 
+    // Build what we send. A student also sends their class details, while a
+    // teacher or class rep has none, so those fields are simply left out.
+    const account = {
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      role: form.role,
+    };
+
+    if (isStudent) {
+      account.rollNo = Number(form.rollNo);
+      account.course = form.course;
+      account.class = form.class;
+      account.section = form.section;
+    }
+
     try {
-      await register({
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        role: form.role,
-        ...(isStudent
-          ? {
-              rollNo: Number(form.rollNo),
-              course: form.course,
-              class: form.class,
-              section: form.section,
-            }
-          : {}),
-      });
+      await register(account);
 
       notify({
         title: "Account created",

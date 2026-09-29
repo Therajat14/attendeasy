@@ -18,8 +18,20 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").repla
   "",
 );
 
+// Two switches you can pass when running this file:
+//   --force     wipe whatever is there and start again
+//   --if-empty  only seed when the database has no users at all
 const force = process.argv.includes("--force");
 
+// --if-empty is what the Docker entrypoint uses on every boot: seed a brand new
+// database, but leave a database that already has data completely alone.
+// Without it, the guard further down would stop the container from starting on
+// every boot after the first.
+const ifEmpty = process.argv.includes("--if-empty");
+
+// A tiny random number generator that always produces the same sequence for the
+// same seed number. That is the point: every run of this script produces exactly
+// the same demo data, so the sample logins never change.
 function mulberry32(seed) {
   return function random() {
     seed |= 0;
@@ -32,14 +44,22 @@ function mulberry32(seed) {
 
 const random = mulberry32(20260926);
 
-const pick = (list) => list[Math.floor(random() * list.length)];
+// Picks one item from a list at random.
+function pick(list) {
+  const position = Math.floor(random() * list.length);
+  return list[position];
+}
 
+// Picks `count` different items from a list at random.
+// It works on a copy, so the original list is left alone.
 function sample(list, count) {
   const pool = [...list];
   const taken = [];
 
-  while (taken.length < count && pool.length) {
-    taken.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
+  while (taken.length < count && pool.length > 0) {
+    const position = Math.floor(random() * pool.length);
+    const chosen = pool.splice(position, 1)[0];
+    taken.push(chosen);
   }
 
   return taken;
@@ -105,25 +125,33 @@ const STUDENT_NAMES = [
   "Neel Kulkarni",
 ];
 
+// How many students are in each of the three classes above.
+const STUDENTS_PER_CLASS = [10, 8, 6];
+
+// Builds the list of student accounts. Roll numbers run 1, 2, 3... across all
+// three classes, and the email is built from the name.
 function buildStudents() {
   const students = [];
   let rollNo = 1;
 
-  CLASS_GROUPS.forEach((group, groupIndex) => {
-    const size = [10, 8, 6][groupIndex];
+  for (let classIndex = 0; classIndex < CLASS_GROUPS.length; classIndex++) {
+    const group = CLASS_GROUPS[classIndex];
+    const size = STUDENTS_PER_CLASS[classIndex];
 
-    for (let i = 0; i < size; i += 1) {
+    for (let i = 0; i < size; i++) {
       const name = STUDENT_NAMES[rollNo - 1] || `Student ${rollNo}`;
+
+      // "Rohan Mehta" becomes "rohan.mehta"
       const emailName = name
         .toLowerCase()
         .replace(/[^a-z]+/g, ".")
         .replace(/^\.|\.$/g, "");
 
       students.push({
-        name,
+        name: name,
         email: `${emailName}@college.edu`,
         role: "student",
-        rollNo,
+        rollNo: rollNo,
         course: group.course,
         class: group.class,
         section: group.section,
@@ -131,35 +159,56 @@ function buildStudents() {
 
       rollNo += 1;
     }
-  });
+  }
 
   return students;
 }
 
-function minutesAgo(minutes) {
-  return new Date(Date.now() - minutes * 60 * 1000);
-}
+// Builds two weeks of finished lectures, three per weekday block.
+const DAYS_AGO_TO_SEED = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
 
-function buildHistory(teachers, groups) {
+function buildHistory(teachers, groups, groupsStudents) {
   const sessions = [];
 
-  // Two weeks of finished lectures, three per weekday block.
-  const pastDays = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
-
-  pastDays.forEach((daysAgo, index) => {
+  for (let index = 0; index < DAYS_AGO_TO_SEED.length; index++) {
+    const daysAgo = DAYS_AGO_TO_SEED[index];
     const teacher = teachers[index % 2];
     const group = groups[index % 2];
     const roster = groupsStudents[groupKey(group)];
-    const subject = pick(SUBJECTS[teacher.email.split(".")[0]] || SUBJECTS.ananya);
+
+    const teacherFirstName = teacher.email.split(".")[0];
+    const subject = pick(SUBJECTS[teacherFirstName] || SUBJECTS.ananya);
+
+    // Spread the lectures over 9am, 11am and 1pm.
     const startOfDay = new Date();
     startOfDay.setDate(startOfDay.getDate() - daysAgo);
     startOfDay.setHours(9 + (index % 3) * 2, 15, 0, 0);
 
-    if (startOfDay > new Date()) return;
+    // A lecture that has not happened yet is skipped.
+    if (startOfDay > new Date()) {
+      continue;
+    }
 
     const date = startOfDay;
-    const rate = 0.55 + random() * 0.42;
-    const markedCount = Math.max(1, Math.round(roster.length * rate));
+
+    // Somewhere between 55% and 97% of the class turns up.
+    const attendanceRate = 0.55 + random() * 0.42;
+    const markedCount = Math.max(1, Math.round(roster.length * attendanceRate));
+    const markedStudents = sample(roster, markedCount);
+
+    const students = [];
+
+    for (const student of markedStudents) {
+      // Each student marks a few minutes after the lecture starts.
+      const submittedAt = new Date(
+        date.getTime() + Math.floor(random() * 12 * 60 * 1000),
+      );
+
+      students.push({
+        studentId: student._id,
+        submittedAt: submittedAt,
+      });
+    }
 
     sessions.push({
       teacherId: teacher._id,
@@ -167,22 +216,19 @@ function buildHistory(teachers, groups) {
       course: group.course,
       class: group.class,
       section: group.section,
-      date,
+      date: date,
       formToken: crypto.randomBytes(32).toString("hex"),
       expiresAt: new Date(date.getTime() + SESSION_MINUTES * 60 * 1000),
       isActive: false,
-      students: sample(roster, markedCount).map((student) => ({
-        studentId: student._id,
-        submittedAt: new Date(date.getTime() + Math.floor(random() * 12 * 60 * 1000)),
-      })),
+      students: students,
     });
-  });
+  }
 
   return sessions;
 }
 
-let groupsStudents = {};
-
+// One name for a class, so we can look up its students, for example
+// "BCA-2nd Year-A".
 function groupKey(group) {
   return `${group.course}-${group.class}-${group.section}`;
 }
@@ -198,6 +244,13 @@ async function seed() {
   const existingUsers = await User.countDocuments();
 
   if (existingUsers > 0 && !force) {
+    // --if-empty means "only if there is nothing here", which is not an error.
+    if (ifEmpty) {
+      console.log(`Database already has ${existingUsers} users, leaving it as it is.`);
+      await mongoose.disconnect();
+      return;
+    }
+
     console.log(
       `\nDatabase already has ${existingUsers} users. Re-run with --force to wipe and reseed:\n  npm run seed -- --force\n`,
     );
@@ -236,25 +289,41 @@ async function seed() {
     `Created ${teachers.length} teachers, ${REPS.length} class reps, ${students.length} students`,
   );
 
-  groupsStudents = Object.fromEntries(
-    CLASS_GROUPS.map((group) => [
-      groupKey(group),
-      students.filter(
-        (student) =>
-          student.course === group.course &&
-          student.class === group.class &&
-          student.section === group.section,
-      ),
-    ]),
-  );
+  // Split the students up into one list per class, so we know who belongs to
+  // which course, year and section.
+  const groupsStudents = {};
 
-  const history = buildHistory(teachers, CLASS_GROUPS);
+  for (const group of CLASS_GROUPS) {
+    const key = groupKey(group);
+
+    groupsStudents[key] = students.filter((student) => {
+      return (
+        student.course === group.course &&
+        student.class === group.class &&
+        student.section === group.section
+      );
+    });
+  }
+
+  const history = buildHistory(teachers, CLASS_GROUPS, groupsStudents);
   await Attendance.insertMany(history);
   console.log(`Created ${history.length} past attendance sessions`);
 
+  // One session that is open right now, so the student side has something live
+  // to look at immediately.
   const liveGroup = CLASS_GROUPS[0];
   const liveRoster = groupsStudents[groupKey(liveGroup)];
   const liveToken = crypto.randomBytes(32).toString("hex");
+
+  const markedStudents = sample(liveRoster, 4);
+  const liveEntries = [];
+
+  for (const student of markedStudents) {
+    liveEntries.push({
+      studentId: student._id,
+      submittedAt: new Date(),
+    });
+  }
 
   await Attendance.create({
     teacherId: teachers[0]._id,
@@ -266,10 +335,7 @@ async function seed() {
     formToken: liveToken,
     expiresAt: new Date(Date.now() + SESSION_MINUTES * 60 * 1000),
     isActive: true,
-    students: sample(liveRoster, 4).map((student) => ({
-      studentId: student._id,
-      submittedAt: new Date(),
-    })),
+    students: liveEntries,
   });
 
   console.log("Created 1 live session (open for the next 30 minutes)");
@@ -285,26 +351,31 @@ function printCredentials(teachers, students, liveToken) {
   console.log(`  Password for every account: ${DEMO_PASSWORD}\n`);
 
   console.log("  TEACHER (live session running)");
-  console.log(`    ${teachers[0].email}`);
-  console.log(`    ${teachers[1].email}`);
-  console.log(`    ${teachers[2].email}\n`);
 
-  console.log("  STUDENTS (BCA / 2nd Year)");
-  students
-    .filter((student) => student.course === "BCA")
-    .slice(0, 6)
-    .forEach((student) => {
-      console.log(
-        `    roll ${String(student.rollNo).padStart(2, "0")}  ${student.email}  (Section ${student.section})`,
-      );
-    });
+  for (const teacher of teachers) {
+    console.log(`    ${teacher.email}`);
+  }
 
-  console.log(`\n  CLASS REPS`);
-  REPS.forEach((rep) => {
+  console.log("\n  STUDENTS (BCA / 2nd Year)");
+
+  // Only the first few, so the list stays short enough to read.
+  const bcaStudents = students.filter((student) => student.course === "BCA");
+  const shownStudents = bcaStudents.slice(0, 6);
+
+  for (const student of shownStudents) {
+    const paddedRoll = String(student.rollNo).padStart(2, "0");
+    console.log(
+      `    roll ${paddedRoll}  ${student.email}  (Section ${student.section})`,
+    );
+  }
+
+  console.log("\n  CLASS REPS");
+
+  for (const rep of REPS) {
     console.log(`    ${rep.email}  (${rep.class}, Section ${rep.section})`);
-  });
+  }
 
-  console.log(`\n  LIVE ATTENDANCE LINK`);
+  console.log("\n  LIVE ATTENDANCE LINK");
   console.log(`    ${FRONTEND_URL}/form/${liveToken}`);
   console.log(`${line}\n`);
 }

@@ -2,8 +2,8 @@ import User from "../models/User.model.js";
 import { generateToken } from "../utils/jwt.util.js";
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from "../utils/authCookie.util.js";
 
-// This turns a user document into the plain object we send to the frontend.
-// The frontend should never receive the password hash.
+// Turns a user document from the database into the plain object we send to the
+// frontend. The frontend should never receive the password hash.
 function toSafeUser(user) {
   return {
     id: user._id,
@@ -60,20 +60,24 @@ export const register = async (req, res) => {
     }
   }
 
-  const newUser = await User.create({
-    name,
-    email,
-    password,
+  // We build the new user in pieces, because only a student gets the class
+  // details. Spreading the object with `...` in between would be shorter, but
+  // the three separate steps here are easier to follow.
+  const newUserDetails = {
+    name: name,
+    email: email,
+    password: password,
     role: userRole,
-    ...(userRole === "student"
-      ? {
-          rollNo: rollNumber,
-          course,
-          class: studentClass,
-          section,
-        }
-      : {}),
-  });
+  };
+
+  if (userRole === "student") {
+    newUserDetails.rollNo = rollNumber;
+    newUserDetails.course = course;
+    newUserDetails.class = studentClass;
+    newUserDetails.section = section;
+  }
+
+  const newUser = await User.create(newUserDetails);
 
   sendAuthCookie(res, newUser);
 
@@ -85,7 +89,14 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
-  const passwordMatches = user ? await user.comparePassword(password) : false;
+
+  // We only compare a password when we actually found a user, because there is
+  // nothing stored to compare against otherwise.
+  let passwordMatches = false;
+
+  if (user) {
+    passwordMatches = await user.comparePassword(password);
+  }
 
   if (!user || !passwordMatches) {
     return res.status(401).json({ message: "Invalid credentials" });
