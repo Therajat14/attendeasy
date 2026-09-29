@@ -24,8 +24,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
 
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f1219" media="(prefers-color-scheme: dark)" />
+    <!-- The browser chrome colour. ThemeContext.jsx updates this when someone
+         switches theme, so it follows the app rather than the operating system. -->
+    <meta name="theme-color" content="#ffffff" />
 
     <meta property="og:title" content="AttendEasy — Attendance that takes seconds" />
     <meta
@@ -53,17 +54,14 @@
     />
 
     <script>
+      // Runs before React so the page never flashes the wrong colours. This must
+      // match getInitialTheme() in src/context/ThemeContext.jsx: use the theme
+      // the user picked before, and default to light for everyone else. We do
+      // not follow the operating system here, on purpose.
       (function () {
         try {
           var stored = localStorage.getItem("attendeasy.theme");
-          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-          var theme =
-            stored === "light" || stored === "dark"
-              ? stored
-              : prefersDark
-                ? "dark"
-                : "light";
-          if (theme === "dark") document.documentElement.classList.add("dark");
+          if (stored === "dark") document.documentElement.classList.add("dark");
         } catch (error) {}
       })();
     </script>

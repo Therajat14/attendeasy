@@ -12,8 +12,12 @@ const ThemeContext = createContext(undefined);
 //
 // The order we try is:
 //   1. what the user picked last time, if we remember it
-//   2. what their operating system is set to
-//   3. light, as a last resort
+//   2. light, for everyone else
+//
+// We deliberately do NOT follow the operating system's dark mode setting. Someone
+// whose laptop is in dark mode has not asked AttendEasy to be dark, and a light
+// app that simply has a dark switch is less surprising than one that opens in a
+// different colour scheme than the site they came from.
 function getInitialTheme() {
   if (typeof window === "undefined") {
     return "light";
@@ -23,12 +27,6 @@ function getInitialTheme() {
 
   if (rememberedTheme === "light" || rememberedTheme === "dark") {
     return rememberedTheme;
-  }
-
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-  if (prefersDark) {
-    return "dark";
   }
 
   return "light";
@@ -50,6 +48,16 @@ export function ThemeProvider({ children }) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+
+    // The meta tags in index.html follow the operating system, which no longer
+    // matches the app once someone picks a theme by hand. Setting this here
+    // keeps the browser's own chrome (the address bar on mobile) in step with
+    // the page instead of following the OS.
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+
+    if (themeColor) {
+      themeColor.setAttribute("content", theme === "dark" ? "#0f1219" : "#ffffff");
     }
   }, [theme]);
 

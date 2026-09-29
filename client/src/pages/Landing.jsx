@@ -228,7 +228,7 @@ export default function Landing() {
               animate="visible"
               variants={reveal}
               custom={0.05}
-              className="mt-6 font-display text-[34px] leading-[1.08] font-extrabold tracking-tight text-ink-900 sm:text-5xl lg:text-[56px]"
+              className="mt-6 font-display text-[34px] leading-[1.08] font-extrabold tracking-tight text-ink-900 sm:text-5xl lg:text-[56px] dark:text-white"
             >
               Attendance that takes
               <br className="hidden sm:block" />{" "}
