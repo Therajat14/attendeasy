@@ -98,6 +98,10 @@ const SUBJECTS = {
   sunita: ["Web Development", "Human Computer Interaction", "Data Science Lab"],
 };
 
+// Enough names for every class below, so the generated email addresses are all
+// different. Two students sharing a name would also share an email, and email is
+// unique in the database, so the count here has to be at least the total number
+// of students.
 const STUDENT_NAMES = [
   "Aarav Patel",
   "Rohan Mehta",
@@ -123,10 +127,48 @@ const STUDENT_NAMES = [
   "Dev Malhotra",
   "Tara Bedi",
   "Neel Kulkarni",
+  "Aisha Fernandes",
+  "Rishi Banerjee",
+  "Simran Sandhu",
+  "Tarun Reddy",
+  "Meera Krishnan",
+  "Zoya Mirza",
+  "Nikhil Verma",
+  "Pooja Sinha",
+  "Manav Grover",
+  "Riya Chawla",
+  "Aman Tiwari",
+  "Sneha Kulkarni",
+  "Harsh Agarwal",
+  "Divya Menon",
+  "Kabir Anand",
+  "Neha Bhattacharya",
+  "Siddharth Rana",
+  "Anjali Pillai",
+  "Farhan Qureshi",
+  "Lakshmi Iyer",
+  "Arjun Deshpande",
+  "Tanya Srivastava",
+  "Imran Shaikh",
+  "Kritika Bose",
+  "Varun Sethi",
+  "Bhavna Joshi",
+  "Yash Varma",
+  "Charita Dutta",
+  "Omkar Naik",
+  "Shruti Gaikwad",
+  "Pranav Shetty",
+  "Deepika Rathore",
+  "Sameer Khan",
+  "Aditi Chavan",
+  "Rishi Kulkarni",
+  "Nandini Rao",
+  "Tejas Patil",
+  "Ishita Saxena",
 ];
 
 // How many students are in each of the three classes above.
-const STUDENTS_PER_CLASS = [10, 8, 6];
+const STUDENTS_PER_CLASS = [24, 18, 14];
 
 // Builds the list of student accounts. Roll numbers run 1, 2, 3... across all
 // three classes, and the email is built from the name.
@@ -164,32 +206,59 @@ function buildStudents() {
   return students;
 }
 
-// Builds two weeks of finished lectures, three per weekday block.
-const DAYS_AGO_TO_SEED = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+// How many weekdays of finished lectures to create. Six weeks of weekdays
+// gives each class around ten lectures, so even the unluckiest student has a
+// history page worth looking at.
+const WEEKS_OF_HISTORY = 6;
+
+// Lecture times across the day, so the list is not all one slot.
+const LECTURE_HOURS = [9, 11, 13, 15];
+
+// Every weekday going back from yesterday, newest first. Weekends are skipped
+// because a college does not hold lectures on Saturday or Sunday.
+function weekdaysAgo(weeks) {
+  const days = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  // Start from yesterday, so today is never in the finished history.
+  cursor.setDate(cursor.getDate() - 1);
+
+  while (days.length < weeks * 5) {
+    const weekday = cursor.getDay();
+
+    if (weekday !== 0 && weekday !== 6) {
+      days.push(new Date(cursor));
+    }
+
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return days;
+}
 
 function buildHistory(teachers, groups, groupsStudents) {
   const sessions = [];
+  const days = weekdaysAgo(WEEKS_OF_HISTORY);
 
-  for (let index = 0; index < DAYS_AGO_TO_SEED.length; index++) {
-    const daysAgo = DAYS_AGO_TO_SEED[index];
-    const teacher = teachers[index % 2];
-    const group = groups[index % 2];
+  for (let index = 0; index < days.length; index++) {
+    // Every class and every teacher gets a turn, rather than only the first two
+    // of each. Without this, the third teacher never appears in any history and
+    // the BTech class never gets a lecture.
+    const teacher = teachers[index % teachers.length];
+    const group = groups[index % groups.length];
     const roster = groupsStudents[groupKey(group)];
 
     const teacherFirstName = teacher.email.split(".")[0];
     const subject = pick(SUBJECTS[teacherFirstName] || SUBJECTS.ananya);
 
-    // Spread the lectures over 9am, 11am and 1pm.
-    const startOfDay = new Date();
-    startOfDay.setDate(startOfDay.getDate() - daysAgo);
-    startOfDay.setHours(9 + (index % 3) * 2, 15, 0, 0);
+    // Spread the lectures over several slots in the day.
+    const date = new Date(days[index]);
+    date.setHours(LECTURE_HOURS[index % LECTURE_HOURS.length], 15, 0, 0);
 
     // A lecture that has not happened yet is skipped.
-    if (startOfDay > new Date()) {
+    if (date > new Date()) {
       continue;
     }
-
-    const date = startOfDay;
 
     // Somewhere between 55% and 97% of the class turns up.
     const attendanceRate = 0.55 + random() * 0.42;

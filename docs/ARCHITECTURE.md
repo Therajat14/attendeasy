@@ -75,9 +75,9 @@ server at all — Node runs the source directly.
              └──────────────┴────────────────┴──────────────┘
                                     │
                     ┌───────────────▼──────────────────────────┐
-                    │  MongoDB                                  │
-                    │    users        29 in the demo seed      │
-                    │    attendances  13 in the demo seed      │
+                    │  MongoDB                                 │
+                    │    users        61 in the demo seed      │
+                    │    attendances  31 in the demo seed      │
                     └──────────────────────────────────────────┘
 ```
 

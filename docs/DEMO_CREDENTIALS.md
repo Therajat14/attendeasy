@@ -32,11 +32,11 @@ Login is by **email address** — there is no separate user ID.
 
 ## Teacher
 
-| Email                     | Name              | What you get                          |
-| ------------------------- | ----------------- | ------------------------------------- |
-| `ananya.iyer@college.edu` | Dr. Ananya Iyer   | Live session running, 6 past sessions |
-| `rahul.verma@college.edu` | Prof. Rahul Verma | 6 past sessions                       |
-| `sunita.nair@college.edu` | Dr. Sunita Nair   | Clean slate, good for a first run     |
+| Email                     | Name              | What you get                           |
+| ------------------------- | ----------------- | -------------------------------------- |
+| `ananya.iyer@college.edu` | Dr. Ananya Iyer   | Live session running, 10 past sessions |
+| `rahul.verma@college.edu` | Prof. Rahul Verma | 10 past sessions                       |
+| `sunita.nair@college.edu` | Dr. Sunita Nair   | 10 past sessions                       |
 
 ## Student
 
@@ -51,9 +51,10 @@ BCA · 2nd Year · Section A (the section with the live session):
 | 05   | `ananya.gupta@college.edu` |
 | 06   | `vivaan.joshi@college.edu` |
 
-The seed also creates 18 more students across BCA Section B and BTech
-Section A, so you can check that a student from another class is correctly
-blocked from a session.
+The seed also creates 50 more students: 18 in BCA Section B and 14 in BTech
+Section A. Sign in as a BTech student, for example
+`farhan.qureshi@college.edu`, to check that a student from another class is
+correctly blocked from a session.
 
 ## Class representative
 
@@ -64,11 +65,14 @@ blocked from a session.
 
 ## What the seed creates
 
-- 3 teachers, 2 class representatives, 24 students
-- 12 finished sessions spread over the last two weeks
+- 3 teachers, 2 class representatives, 56 students
+- 30 finished sessions spread over the last six weeks of weekdays
 - 1 live session (BCA · 2nd Year · Section A) open for 30 minutes, already
   marked by 4 students
 - A live attendance link, printed at the end of the seed run
+
+Each student ends up with between 4 and 10 entries on their history page, and
+each teacher has about 10 past sessions spread across all three sections.
 
 ## Things worth trying
 
@@ -78,5 +82,5 @@ blocked from a session.
 | Sign in as `kabir.nair@college.edu`              | The live lecture shows up for marking          |
 | Mark the same lecture again                      | "You've already marked this lecture"           |
 | Sign in as a BTech student and open the BCA link | Blocked — the session is not for your class    |
-| Sign in as `rohan.mehta@college.edu`             | 7 past lectures on the history page            |
+| Sign in as `rohan.mehta@college.edu`             | 5 past lectures on the history page            |
 | Close the session as the teacher                 | The student link stops working                 |
