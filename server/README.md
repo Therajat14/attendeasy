@@ -77,23 +77,31 @@ Protected routes need the login cookie. There is no `Authorization` header and
 the frontend never sees the token, because it is sent as an `httpOnly` cookie
 that page JavaScript cannot read.
 
-| Cookie setting | Why                                                                 |
-| -------------- | ------------------------------------------------------------------- |
-| `httpOnly`     | A successful XSS cannot read the token out of the cookie            |
-| `sameSite`     | `lax` stops other sites from sending the cookie with their requests |
-| `secure`       | Only sent over HTTPS, and only outside development                  |
-| `maxAge`       | 7 days, matching the lifetime inside the token                      |
+| Cookie setting | Why                                                            |
+| -------------- | -------------------------------------------------------------- |
+| `httpOnly`     | A successful XSS cannot read the token out of the cookie       |
+| `sameSite`     | `none` in production so the cookie survives a split deployment |
+| `secure`       | Only sent over HTTPS, and always on with `sameSite: "none"`    |
+| `maxAge`       | 7 days, matching the lifetime inside the token                 |
+
+A cookie marked `sameSite: "lax"` is only attached to requests made from the
+same site. Once the frontend and the API live on two different hosts they are
+two different sites, and the browser stops sending the cookie — every protected
+route then answers `401 Not authorized`. `none` is the value that keeps working
+across hosts, and browsers only allow it together with `secure`, which is why
+the API must be served over HTTPS in production.
 
 ## Environment
 
 Copy `.env.example` to `.env`:
 
-| Key            | Meaning                            |
-| -------------- | ---------------------------------- |
-| `PORT`         | Port the API listens on            |
-| `MONGO_URI`    | Where the database lives           |
-| `JWT_SECRET`   | Secret used to sign tokens         |
-| `FRONTEND_URL` | Used to build the attendance links |
+| Key                | Meaning                                              |
+| ------------------ | ---------------------------------------------------- |
+| `PORT`             | Port the API listens on                              |
+| `MONGO_URI`        | Where the database lives                             |
+| `JWT_SECRET`       | Secret used to sign tokens                           |
+| `FRONTEND_URL`     | Used to build the attendance links                   |
+| `COOKIE_SAME_SITE` | Optional: `lax` or `none`, see the cookie note above |
 
 ## Formatting
 

@@ -99,7 +99,10 @@ export const login = async (req, res) => {
 // LOGOUT
 export const logout = async (req, res) => {
   // Clearing a cookie means sending it again with an empty value and no expiry.
-  res.clearCookie(AUTH_COOKIE_NAME);
+  // We repeat the original options so the browser recognises the cookie we are
+  // removing: a cookie only matches the one being cleared on name, path and
+  // domain, but keeping the rest identical avoids surprises.
+  res.clearCookie(AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS);
 
   return res.json({ message: "Logged out successfully" });
 };
