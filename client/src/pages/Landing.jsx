@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -128,12 +129,37 @@ function Section({ id, children, className = "" }) {
   );
 }
 
+// The demo card shows a session counting down, so it needs a real timer. It
+// starts here and, once it runs out, starts over from this same value. That
+// makes the card loop forever instead of sitting at 00:00 forever.
+const DEMO_SESSION_SECONDS = 24 * 60 + 38;
+
+// Turns a number of seconds into the "MM:SS" the card displays.
+function formatTimeLeft(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function LivePreview() {
   const roster = [
     { name: "Aarav Sharma", roll: "21", time: "10:02" },
     { name: "Ishita Verma", roll: "07", time: "10:03" },
     { name: "Rohan Mehta", roll: "34", time: "10:04" },
   ];
+
+  // One tick every second: count down, and jump back to the start at zero.
+  const [secondsLeft, setSecondsLeft] = useState(DEMO_SESSION_SECONDS);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsLeft((current) => (current <= 1 ? DEMO_SESSION_SECONDS : current - 1));
+    }, 1000);
+
+    // Always clear the timer, or it keeps running after we leave the page.
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <motion.div
@@ -166,8 +192,8 @@ function LivePreview() {
             <p className="text-[11px] font-semibold text-ink-500 dark:text-ink-400">
               Time left
             </p>
-            <p className="mt-1 font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              24:38
+            <p className="mt-1 font-display text-xl font-extrabold text-ink-900 tabular-nums dark:text-white">
+              {formatTimeLeft(secondsLeft)}
             </p>
           </div>
           <div className="rounded-2xl bg-ink-50 p-3.5 dark:bg-ink-800/50">
