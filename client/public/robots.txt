@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Private areas: nothing to index, and the pages are already client-guarded.
+Disallow: /dashboard
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /form/
+
+Sitemap: https://attendeasy.in/sitemap.xml

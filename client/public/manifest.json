@@ -1,12 +1,15 @@
 {
-  "name": "AttendEasy",
+  "name": "AttendEasy — QR Attendance",
   "short_name": "AttendEasy",
-  "description": "Attendance that takes seconds.",
+  "description": "Attendance that takes seconds, not minutes.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#3b63f6",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "/images/icon-192.png",
@@ -19,6 +22,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/images/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
