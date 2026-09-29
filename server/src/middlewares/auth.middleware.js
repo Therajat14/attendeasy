@@ -21,6 +21,9 @@ export const protect = async (req, res, next) => {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     userId = decodedToken.id;
   } catch (error) {
+    // Token is invalid or expired.
+    // Remove it from the browser.
+    res.clearCookie(AUTH_COOKIE_NAME);
     return res.status(401).json({ message: "Invalid token" });
   }
 
