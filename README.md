@@ -175,8 +175,12 @@ cookie for any account.
 | Guide                                                | What it covers                                                                                                  |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [server/README.md](server/README.md)                 | How a request travels, every endpoint, environment                                                              |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)         | How the system is put together: the stack, the request pipeline, the data model, the API, and the known gaps    |
+| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md)       | Why it is built this way: the constraints, the trade-offs, the security model, and what to build next          |
 | [docs/INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md)   | Architecture diagram, the full sign-in flow, interview questions, and the trickiest parts of the code explained |
 | [docs/DEMO_CREDENTIALS.md](docs/DEMO_CREDENTIALS.md) | Sample accounts for trying the app locally                                                                      |
+| [docs/QR_ROTATION_AND_SESSION_EXPIRY.md](docs/QR_ROTATION_AND_SESSION_EXPIRY.md)         | The plan for short-lived rotating QR links and reliable session expiry    |
+| [docs/DEVICE_IDENTITY_AND_PROXY_PREVENTION.md](docs/DEVICE_IDENTITY_AND_PROXY_PREVENTION.md) | The plan for device binding, audit logs, and spotting proxy attendance |
 
 ---
 
@@ -215,7 +219,7 @@ attendeasy/
 │       ├── utils/        # small shared helpers
 │       └── seed/         # demo data script
 │
-└── docs/              # Demo credentials
+└── docs/              # architecture, system design, guides, demo credentials
 ```
 
 Each layer only imports the layer above it, so any request can be traced by
