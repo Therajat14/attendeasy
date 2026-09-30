@@ -16,7 +16,7 @@ Line numbers refer to commit `8acd9b6`.
 
 Today a teacher starts a session, and the link
 `https://frontend/form/<formToken>` stays valid for the full 30 minutes
-(`SESSION_DURATION_MINUTES` at `server/src/controllers/attendance.controller.js:6`).
+(`SESSION_DURATION_MINUTES` at `server/src/controllers/attendance/attendance.helpers.js:7`).
 
 That is a long time for a URL that is meant to be shown on a projector. If
 somebody photographs the QR code, or forwards the link on WhatsApp, that copy
@@ -67,7 +67,7 @@ generates a new random token and writes it over the old one on the session
 document.
 
 Why this is the simplest correct answer: the lookup in `markAttendance` is an
-exact match on `formToken` (`attendance.controller.js:202`). Overwriting the
+exact match on `formToken` (`student.controller.js:18`). Overwriting the
 field therefore **invalidates the previous token automatically** — there is no
 second list of valid tokens, no revocation table, and nothing to forget to
 clean up. A link that is 31 seconds old simply stops matching a document.
@@ -105,7 +105,7 @@ export function mintFormToken() {
 ```
 
 Move the `crypto.randomBytes(32).toString("hex")` currently sitting at
-`attendance.controller.js:173` into this file, and replace it with a call to
+`session.controller.js:51` into this file, and replace it with a call to
 `mintFormToken()`.
 
 **Step 2 — remember when the current link was handed out.**
@@ -121,7 +121,7 @@ job of making sure two sessions can never share a link.
 
 **Step 3 — an endpoint that issues the next link.**
 
-New handler in `attendance.controller.js`, next to the other exports:
+New handler in `session.controller.js`, next to the other exports:
 
 ```js
 // A NEW LINK FOR THE CURRENT SESSION (the QR code renews every 30 seconds)
@@ -186,8 +186,8 @@ is instantly stale and marking stops working for the whole class.** The endpoint
 and the field are safe to ship first; this check is not, because until the
 teacher's page starts rotating, nothing ever issues a fresh token.
 
-Add it inside `markAttendance` (`attendance.controller.js:196`), after the
-session-expired check on line 208 and before the class check on line 218:
+Add it inside `markAttendance` (`student.controller.js:12`), after the
+session-expired check and before the class check:
 
 ```js
 const LINK_LIFETIME_MS = LINK_LIFETIME_SECONDS * 1000;
@@ -228,7 +228,7 @@ scanning.
 In `client/src/pages/TeacherDashboard.jsx`:
 
 - Add a `currentFormUrl` state, initialised from `activeSession.formUrl` (the
-  property is built at `attendance.controller.js:130` and consumed at
+  property is built at `attendance.serializer.js:51` and consumed at
   `TeacherDashboard.jsx:428` and `:435`).
 - Add a `useEffect` keyed on `activeSession?.id` that calls
   `api.post(`/attendance/${activeSession.id}/refresh-link`)` every 30 seconds and
@@ -307,14 +307,14 @@ they are independent of each other.
 
 ### 4.1 Reading A — the background sweeper (recommended first)
 
-**What exists today.** `closeExpiredSessions` (`attendance.controller.js:60`)
+**What exists today.** `closeExpiredSessions` (`attendance.helpers.js:59`)
 flips `isActive` to `false` for anything past `expiresAt`. It is called at the
-start of four read handlers plus the start handler: lines 154, 265, 330, 390 and
-428. It is **lazy
-cleanup** — the flag only changes when somebody happens to read.
+start of five handlers — `session.controller.js:32`, `query.controller.js:18`
+and `:48`, and `student.controller.js:85` and `:123`. It is **lazy cleanup** —
+the flag only changes when somebody happens to read.
 
 That works well enough for correctness of the API. `startAttendanceSession`
-filters on `expiresAt: { $gt: new Date() }` (line 159), so a stale session
+filters on `expiresAt: { $gt: new Date() }` (`session.controller.js:37`), so a stale session
 flagged `isActive: true` can never block a new one, and `markAttendance` checks
 `expiresAt` directly. The teacher and the student never see a ghost session.
 
@@ -378,7 +378,7 @@ Add the matching shutdown so the timer cannot outlive the worker, alongside the
 
 **What exists today.** If a teacher starts a session while one is already open,
 `startAttendanceSession` returns **409** with the open session attached
-(`attendance.controller.js:164-171`). The teacher is told "you already have an
+(`session.controller.js:34-49`). The teacher is told "you already have an
 active session" and has to go and close it first.
 
 That is defensible, but it is a real annoyance in a lecture: a teacher who
@@ -446,7 +446,7 @@ test, because each worker on its own is behaving correctly.
 
 **Do not rotate inside `serializeAttendance`.** It is tempting to mint a token
 while building the response, since that is where `formUrl` is built
-(`attendance.controller.js:130`). Resist. It is called from five different read
+(`attendance.serializer.js:51`). Resist. It is called from five different read
 handlers, including the student's `/live` poll, so any read anywhere would burn
 a token and students' screens would start failing at random. A function that
 formats a response should not have side effects.
@@ -486,7 +486,7 @@ sane defaults so nothing breaks if they are unset:
 ```
 
 Read them once at the top of the module, the way
-`attendance.controller.js:6` reads its duration, rather than inline at every
+`attendance.helpers.js:7` reads its duration, rather than inline at every
 use, so the value cannot drift between two places. The flag in particular is
 read in one place only — `markAttendance` — and the teacher-side timer should
 ask the server which mode it is in rather than assuming, so the two can never

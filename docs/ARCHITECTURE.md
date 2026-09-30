@@ -143,7 +143,9 @@ attendeasy/
 │       │
 │       ├── routes/               # URL → function
 │       ├── middlewares/           # protect, rate limit, error handler
-│       ├── controllers/           # the actual work
+│       ├── controllers/           # the actual work, one folder per feature
+│       │   ├── attendance/        #   session, query, student, serializer
+│       │   └── auth/              #   controller, helpers
 │       ├── models/                # Mongoose schemas
 │       ├── utils/                 # jwt, auth cookie
 │       └── seed/seed.js          # deterministic demo data
@@ -152,8 +154,26 @@ attendeasy/
 ```
 
 The server is the standard Express four-layer split: route → middleware →
-controller → model. There is no service layer, because with two controllers
-that would be a layer of indirection and nothing else.
+controller → model. There is no service layer, because that would be a layer of
+indirection in front of the models and nothing else.
+
+Inside a controller, the split is by **job** rather than by layer. The
+attendance controller outgrew a single file, so it became a folder:
+
+```
+controllers/attendance/
+  index.js                    the only file the routes import
+  session.controller.js       start, end, and read one session
+  query.controller.js         the teacher's list and the calendar view
+  student.controller.js       mark, live sessions, and history
+  attendance.serializer.js    database document to the JSON the frontend wants
+  attendance.helpers.js       the few shared helpers and constants
+```
+
+The rule that keeps this readable is that every file answers one question, and
+no file reaches sideways for a sibling's internals. Routes import only
+`index.js`, so moving code between these files never touches a route. `auth/`
+is the same shape with two files, `auth.controller.js` and `auth.helpers.js`.
 
 ---
 
@@ -236,22 +256,25 @@ plain HTTP on a LAN.
 
 ### 5.4 Attendance
 
-`server/src/controllers/attendance.controller.js` is the heart of the app.
+`server/src/controllers/attendance/` is the heart of the app. It is split into
+five files (see section 4), and the three handler files are `session`, `query`
+and `student`. The reasoning below refers to those names.
 
 **Starting a session** generates a 32-byte random `formToken`
-(`crypto.randomBytes`), which becomes the URL the QR encodes. A teacher may run
-one session at a time: if one is already open, the API answers `409` and hands
-back the open session rather than creating a second.
+(`crypto.randomBytes` in `session.controller.js:51`), which becomes the URL the
+QR encodes. A teacher may run one session at a time: if one is already open, the
+API answers `409` and hands back the open session rather than creating a second.
 
-**Expiry is lazy.** `closeExpiredSessions()` (line 60) flips `isActive` to
-`false` for anything past `expiresAt`, and is called at the top of five
-handlers. There is no background job, so a session nobody looks at keeps saying
-`isActive: true` in the database — harmless, because `startAttendanceSession`
-filters on `expiresAt > now` and `markAttendance` checks `expiresAt` itself. A
-background sweeper is the planned fix; see
-`docs/QR_ROTATION_AND_SESSION_EXPIRY.md` section 4.1.
+**Expiry is lazy.** `closeExpiredSessions()`
+(`attendance.helpers.js:59`) flips `isActive` to `false` for anything past
+`expiresAt`, and is called at the top of five handlers. There is no background
+job, so a session nobody looks at keeps saying `isActive: true` in the database
+— harmless, because `startAttendanceSession` filters on `expiresAt > now` and
+`markAttendance` checks `expiresAt` itself. A background sweeper is the planned
+fix; see `docs/QR_ROTATION_AND_SESSION_EXPIRY.md` section 4.1.
 
-**Marking** is one `findOneAndUpdate` doing two jobs at once (line 229):
+**Marking** is one `findOneAndUpdate` doing two jobs at once
+(`student.controller.js:45`):
 
 ```js
 {

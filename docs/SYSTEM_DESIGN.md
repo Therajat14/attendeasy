@@ -50,7 +50,7 @@ Naming these early prevents a lot of bad architecture.
 scanned the code.**
 
 `markAttendance` derives the student from `req.user._id`
-(`server/src/controllers/attendance.controller.js:243`), and `req.user` comes
+(`server/src/controllers/attendance/student.controller.js:59`), and `req.user` comes
 from a verified JWT cookie via `protect`
 (`server/src/middlewares/auth.middleware.js:33`). No field in the request names a
 student. The QR carries a token that identifies a _session_, nothing more.

@@ -62,7 +62,7 @@ browser sends it by itself.
 3. AuthContext does  api.post("/auth/login", input)
         │            api.js has withCredentials: true
         ▼
-4. auth.controller.js → login()
+4. auth/auth.controller.js → login()
         │  a) find the user by email
         │  b) user.comparePassword()  (bcrypt)
         │  c) generateToken(user)      (jwt.util.js)
@@ -88,18 +88,18 @@ browser sends it by itself.
 
 ### The important files
 
-| Step                                      | File                                        | Line       |
-| ----------------------------------------- | ------------------------------------------- | ---------- |
-| Cookie name, age and options              | `server/src/utils/authCookie.util.js`       | 2, 5, 15   |
-| Sign the token                            | `server/src/utils/jwt.util.js`              | 6          |
-| Set the cookie                            | `server/src/controllers/auth.controller.js` | 21, 24     |
-| Strip the password before replying        | `server/src/controllers/auth.controller.js` | 7          |
-| Clear the cookie on sign-out              | `server/src/controllers/auth.controller.js` | 100, 102   |
-| Read and verify the cookie                | `server/src/middlewares/auth.middleware.js` | 12, 21, 27 |
-| Turn the Cookie header into `req.cookies` | `server/src/app.js`                         | 35         |
-| Allow the real origin (not `*`)           | `server/src/app.js`                         | 21, 27     |
-| Send cookies from the browser             | `client/src/services/api.js`                | 10         |
-| "Who am I?" on page load                  | `client/src/context/AuthContext.jsx`        | 26, 29     |
+| Step                                      | File                                             | Line       |
+| ----------------------------------------- | ------------------------------------------------ | ---------- |
+| Cookie name, age and options              | `server/src/utils/authCookie.util.js`            | 2, 5, 15   |
+| Sign the token                            | `server/src/utils/jwt.util.js`                   | 6          |
+| Set the cookie                            | `server/src/controllers/auth/auth.helpers.js`    | 23, 25     |
+| Strip the password before replying        | `server/src/controllers/auth/auth.helpers.js`    | 9          |
+| Clear the cookie on sign-out              | `server/src/controllers/auth/auth.controller.js` | 60         |
+| Read and verify the cookie                | `server/src/middlewares/auth.middleware.js`      | 12, 21, 27 |
+| Turn the Cookie header into `req.cookies` | `server/src/app.js`                              | 35         |
+| Allow the real origin (not `*`)           | `server/src/app.js`                              | 21, 27     |
+| Send cookies from the browser             | `client/src/services/api.js`                     | 10         |
+| "Who am I?" on page load                  | `client/src/context/AuthContext.jsx`             | 26, 29     |
 
 ### Why each cookie flag
 
@@ -133,15 +133,15 @@ token and skip the lookup, accepting that role changes need a fresh sign-in.
 
 ### "What stops a student marking a BTech lecture?"
 
-Two checks. `isSameClass` (`attendance.controller.js:27`) compares the signed-in
+Two checks. `isSameClass` (`attendance/attendance.helpers.js:38`) compares the signed-in
 user's course, class and section against the session and returns 403. Then the
 update query itself also filters on `course`, `class` and `section`
-(`attendance.controller.js:187-189`), so the database refuses the write even if
+(`attendance/student.controller.js:48-50`), so the database refuses the write even if
 the first check were ever removed.
 
 ### "What stops a student marking twice?"
 
-The update at `attendance.controller.js:184-202` only matches when the student
+The update at `attendance/student.controller.js:45-63` only matches when the student
 is **not already** in the array:
 
 ```js
@@ -161,7 +161,7 @@ steps (read, then write) would leave a gap where both requests pass the read.
 
 ### "Why not just delete expired sessions on a timer?"
 
-`closeExpiredSessions` (`attendance.controller.js:39`) flips `isActive` to false
+`closeExpiredSessions` (`attendance/attendance.helpers.js:59`) flips `isActive` to false
 whenever data is read, instead of running a background job every minute. It
 means no extra process to deploy, and a session can never be _reported_ as live
 after its 30 minutes are up, because the reading code just closed it first. The
@@ -261,7 +261,7 @@ first is ever removed by mistake.
 Students are listed by roll number, and a few records have no roll number.
 `rollNo ?? Number.MAX_SAFE_INTEGER` pushes those missing values to the end
 instead of letting `undefined` produce `NaN` and break the sort
-(`attendance.controller.js:60-66`).
+(`attendance/attendance.serializer.js:28-29`).
 
 ### 9. The password hook in the User model
 

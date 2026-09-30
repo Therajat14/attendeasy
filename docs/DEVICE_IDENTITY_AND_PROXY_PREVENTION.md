@@ -44,8 +44,8 @@ sits on.
 the HTTP-only cookie, then loads the user from the database and assigns
 `req.user` (line 33). `markAttendance` then writes
 `students: { studentId: req.user._id, ... }`
-(`server/src/controllers/attendance.controller.js:243`) and filters on
-`req.user._id` at line 238.
+(`server/src/controllers/attendance/student.controller.js:59`) and filters on
+`req.user._id` a few lines above.
 
 There is **no field anywhere in the mark request that names a student.** The QR
 carries no identity. A student who scans a colleague's code marks *themselves* —
@@ -54,10 +54,10 @@ it cannot produce a roster entry for anyone else.
 **One mark per student per session is already atomic.**
 
 The `$not: { $elemMatch: ... }` at
-`attendance.controller.js:238` sits inside the same `findOneAndUpdate` that does
+`student.controller.js:45` sits inside the same `findOneAndUpdate` that does
 the `$push`. Two simultaneous requests cannot both insert, because the second
 one's filter no longer matches once the first commits. The loser gets 409
-`Already marked` (`attendance.controller.js:251`).
+`Already marked` (`student.controller.js:67`).
 
 Both of these are properties of the database write, not of the client, so they
 hold regardless of what the student does:
@@ -152,7 +152,7 @@ Not a fingerprint. An actual secret the server hands out and can revoke.
 
 **On sign-in**, if the request presents no recognised device secret, mint one
 (a `crypto.randomBytes(32)` token, the same primitive already used for
-`formToken` at `attendance.controller.js:173`), store only its hash against the
+`formToken` at `session.controller.js:51`), store only its hash against the
 user, and return it in a long-lived `HttpOnly` cookie scoped to the API. **On
 every mark**, the client sends a device id, and the server resolves it to a user.
 
@@ -265,7 +265,7 @@ cookies. A person walking around the hall with one phone and marking every
 colleague produces exactly this, and nothing else does.
 
 Signals 2, 3 and 5 are near-free because the data is already there —
-`submittedAt` is written on every mark (`attendance.controller.js:243`).
+`submittedAt` is written on every mark (`student.controller.js:59`).
 
 **Where this data lives.** Anomaly detection needs history across sessions, so
 in-memory `Map`s are not enough — the rate limiter keeps its counters in a

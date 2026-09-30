@@ -8,7 +8,7 @@ import {
   getStudentAttendanceHistory,
   markAttendance,
   startAttendanceSession,
-} from "../controllers/attendance.controller.js";
+} from "../controllers/attendance/index.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { formSubmissionRateLimiter } from "../middlewares/rateLimit.middleware.js";
 

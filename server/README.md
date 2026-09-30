@@ -21,11 +21,12 @@ server.js        starts the app, and forks a worker per CPU in production
   └─ app.js      decides which route file handles the URL
        └─ routes/attendance.routes.js   "POST /start"  ->  which function
             └─ middlewares/auth.middleware.js        "is this person signed in?"
-                 └─ controllers/attendance.controller.js   does the work, sends the reply
-                      └─ models/Attendance.model.js    the shape of the data in MongoDB
+             └─ controllers/attendance/index.js   picks the handler
+                  └─ controllers/attendance/session.controller.js   the work, sends the reply
+                       └─ models/Attendance.model.js    the shape of the data in MongoDB
 ```
 
-To follow any request, open those four files and read them top to bottom. There
+To follow any request, open those files and read them top to bottom. There
 is no framework magic, no dependency injection, and no service layer to hunt
 through.
 
@@ -34,7 +35,7 @@ through.
 | Folder         | What lives there                   | Rule                                     |
 | -------------- | ---------------------------------- | ---------------------------------------- |
 | `models/`      | Mongoose schemas                   | One file per thing stored in MongoDB     |
-| `controllers/` | The actual work                    | One file per feature, named after it     |
+| `controllers/` | The actual work                    | One folder per feature, split by job     |
 | `routes/`      | URL to controller mapping          | No logic, just wiring                    |
 | `middlewares/` | Code that runs before a controller | Sign-in check, rate limit, error handler |
 | `config/`      | Setup that runs once               | Database connection                      |
@@ -43,18 +44,37 @@ through.
 
 Each folder depends only on the ones above it in that table. A controller can
 import a model; a model imports nothing of ours. Nothing imports a controller
-except its route file. That is why you can open any file and know exactly what
-it touches.
+except its route file, and a route only ever imports that feature's `index.js`.
+That is why you can open any file and know exactly what it touches.
+
+## Inside a controller folder
+
+A controller grows quickly, so each feature folder splits itself up. Routes
+import only the `index.js`, and never care how the rest is arranged:
+
+```
+controllers/attendance/
+  index.js                    the only file the routes import
+  session.controller.js       start, end, and read one session
+  query.controller.js         the teacher's list and the calendar view
+  student.controller.js       mark, live sessions, and history
+  attendance.serializer.js    database document to the JSON the frontend wants
+  attendance.helpers.js       the few shared helpers and constants
+```
+
+The split is by job, not by layer: there is no `service.js` and no `validators.js`
+folder, only files that each hold one idea. `auth/` is the same shape with two
+files, `auth.controller.js` and `auth.helpers.js`.
 
 ## Files worth reading first
 
-| File                                 | Why                                               |
-| ------------------------------------ | ------------------------------------------------- |
-| `src/server.js`                      | The boot sequence: env, cluster, database, listen |
-| `src/app.js`                         | Every route the API has, on one screen            |
-| `src/routes/auth.routes.js`          | Smallest complete example of the four-file flow   |
-| `src/controllers/auth.controller.js` | Register, login, logout, and who am I             |
-| `src/utils/authCookie.util.js`       | The one place cookie options are defined          |
+| File                                      | Why                                               |
+| ----------------------------------------- | ------------------------------------------------- |
+| `src/server.js`                           | The boot sequence: env, cluster, database, listen |
+| `src/app.js`                              | Every route the API has, on one screen            |
+| `src/routes/auth.routes.js`               | Smallest complete example of the four-file flow   |
+| `src/controllers/auth/auth.controller.js` | Register, login, logout, and who am I             |
+| `src/utils/authCookie.util.js`            | The one place cookie options are defined          |
 
 ## The API
 
